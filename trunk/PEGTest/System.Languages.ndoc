@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<project SchemaVersion="2.0">
+    <assemblies>
+        <assembly location=".\bin\Debug\PEGTest.exe" documentation=".\bin\Debug\PEGTest.xml" />
+    </assemblies>
+    <documenters>
+        <documenter name="MSDN-CHM">
+            <property name="SdkLinksOnWeb" value="True" />
+            <property name="OutputDirectory" value=".\doc\" />
+            <property name="HtmlHelpName" value="System.Languages" />
+            <property name="Title" value="System.Languages" />
+            <property name="CopyrightText" value="(c) 2009, 2010 Cyril J. Jandia" />
+            <property name="FeedbackEmailAddress" value="ysharp.design@gmail.com" />
+            <property name="Preliminary" value="True" />
+        </documenter>
+        <documenter name="MSDN-Web">
+            <property name="OutputDirectory" value=".\doc\" />
+            <property name="HtmlHelpName" value="System.Languages" />
+            <property name="Title" value="System.Languages" />
+            <property name="CopyrightText" value="(c) 2009, 2010 Cyril J. Jandia" />
+            <property name="FeedbackEmailAddress" value="ysharp.design@gmail.com" />
+            <property name="Preliminary" value="True" />
+        </documenter>
+        <documenter name="Intellisense">
+            <property name="OutputDirectory" value=".\intellisense\" />
+        </documenter>
+    </documenters>
+</project>
