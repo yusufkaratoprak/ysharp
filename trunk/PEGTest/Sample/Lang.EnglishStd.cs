@@ -48,6 +48,27 @@ namespace Samples
 
         protected override Select Define()
         {
+            /*
+             *  A possible equivalent syntax for the fluent interface:
+             *  (special characters: "=", "<", ">", "[", "]", "#", "(", ")", "|", "!", "*", "+", "?", '"', "{", "}")
+             *  
+             *  // pound sign (#) at beginning of sequence: bool asToken = true
+             *  HOTDOG = <HOTDOG>[# HOT ( HYPHEN | OPTSPACE ) DOG ]
+             *  
+             *  // exclamation mark after closing parenthesis: equivalent construct token for Let.Expect(...)
+             *  Det = ( <Det>[ ( A | THE ) ] )!
+             *  ...
+             *  // exclamation mark in tag: equivalent construct token for Let.Error(...)
+             *  // pound signs in tag: equivalent construct for Let.Regex(...) (double quotes for Let.Token(...))
+             *  UnknownWord = <unknown!>( <WORD #[a-z]+#> )
+             *  ...
+             *  // star symbol after closing parenthesis: equivalent construct token for Let.Any(...)
+             *  OptAdjNoun = <OptAdjNoun>[ <OptAdjective>( <Adjective>[ Adjective SPACE ] )* Noun ]
+             *  
+             *  // exclamation mark after closing parenthesis: equivalent construct token for Let.Opt(...)
+             *  OptAdverb = <OptAdverb>[ ( <Adverb>[ Adverb SPACE ] )? Verb ]
+             *  ...
+             */
             var SPACE = Let.Regex("SPACE", @"\s+");
             var OPTSPACE = Let.Opt(SPACE);
             var HYPHEN = Let.Token("HYPHEN", "-");
@@ -90,20 +111,16 @@ namespace Samples
             var Det = Let.Expect(Let.Seq("Det", Let.Or(A, THE)));
             var EnglishNoun = Let.Or(HOTDOG, BOYFRIEND, BOY, CAT, CAKE, COFFEE, DOG, GIRLFRIEND, GIRL, MAN, WOMAN);
             var UnknownWord = Let.Error("unknown", Let.Regex("WORD", "[a-z]+"));
-            var Noun = Let.Seq("Noun", Let.Or(EnglishNoun, Let["Foreign Noun"], UnknownWord));
-            var Verb = Let.Expect(Let.Seq("Verb", Let.Or(EATS, DRINKS, HAS, HATES, KICKS, LOVES, PETS)));
-            var Adj = Let.Or(SO_CALLED, BIG, SMALL, BLACK, WHITE, Let.Seq(HOT, Let.Not(Let.Seq(OPTSPACE, DOG))), COLD, SWEET, Let["Foreign Adj"]);
-            var Adv = Let.Or(CRUDELY, GENTLY, QUICKLY, SLOWLY);
+            var Noun = Let.Seq("Noun", Let.Or(EnglishNoun, Let["ForeignNoun"], UnknownWord));
+            var Verb = Let.Expect(Let.Seq("Verb", Let.Or(EATS, DRINKS, HAS, HATES, KICKS, LOVES, PETS, UnknownWord)));
+            var Adjective = Let.Or(SO_CALLED, BIG, SMALL, BLACK, WHITE, Let.Seq(HOT, Let.Not(Let.Seq(OPTSPACE, DOG))), COLD, SWEET, Let["ForeignAdj"]);
+            var Adverb = Let.Or(CRUDELY, GENTLY, QUICKLY, SLOWLY);
 
-            var OptAdjNoun = Let.Seq("Opt Adj Noun", Let.Any("Opt Adj", Let.Seq("Adj", Adj, SPACE)), Noun);
-            var OptAdvVerb = Let.Seq("Opt Adv Verb", Let.Opt(Let.Seq("Adv", Adv, SPACE)), Verb);
-
-            var NP = Let.Or("Noun Phrase", Let.Seq("Noun Group", Det, SPACE, OptAdjNoun), OptAdjNoun);
-
-            var VP = Let.Or(Let.Seq("Verb Group", Let.Expect(OptAdvVerb), SPACE, Let.Expect(NP)), OptAdvVerb);
-
-            var phrase = Let.Seq("Phrase", Let.Expect(NP), Let.Expect(Let.Seq("Verb Phrase", SPACE, VP)));
-
+            var OptAdjNoun = Let.Seq("OptAdjNoun", Let.Any("OptAdjective", Let.Seq("Adjective", Adjective, SPACE)), Noun);
+            var OptAdverb = Let.Seq("OptAdverb", Let.Opt(Let.Seq("Adverb", Adverb, SPACE)), Verb);
+            var NounPhrase = Let.Or("NounPhrase", Let.Seq("NounGroup", Det, SPACE, OptAdjNoun), OptAdjNoun);
+            var VerbGroup = Let.Or(Let.Seq("VerbGroup", Let.Expect(OptAdverb), SPACE, Let.Expect(NounPhrase)), OptAdverb);
+            var phrase = Let.Seq("Phrase", Let.Expect(NounPhrase), Let.Expect(Let.Seq("VerbPhrase", SPACE, VerbGroup)));
             var sentence = Let.Seq("Sentence", Let.Expect(phrase), Let.Expect(Let.Seq("Period", OPTSPACE, PERIOD)), OPTSPACE);
 
             return Let.Seq("syntax", OPTSPACE, Let.Expect(Let.Some("Sentences", sentence)));
@@ -111,7 +128,7 @@ namespace Samples
 
         protected override Value Evaluate(string select, Value value)
         {
-            if (select == "Noun Phrase")
+            if (select == "NounPhrase")
             {
                 string unknownWord = null;
                 value.Visit(
@@ -122,7 +139,7 @@ namespace Samples
                         return (String.IsNullOrEmpty(unknownWord) ? current : null);
                     }
                 );
-                Console.WriteLine("{0} : {1}...\t=>\tHas unknown word ? {2}{3}", GetType().FullName, value.Ident, !String.IsNullOrEmpty(unknownWord), !String.IsNullOrEmpty(unknownWord) ? String.Concat(" : ", unknownWord) : String.Empty);
+                Console.WriteLine("{0} : {1}...\t=>\tHas unknown noun/verb ? {2}{3}", GetType().FullName, value.Ident, !String.IsNullOrEmpty(unknownWord), !String.IsNullOrEmpty(unknownWord) ? String.Concat(" : ", unknownWord) : String.Empty);
                 Console.WriteLine();
             }
             return value;

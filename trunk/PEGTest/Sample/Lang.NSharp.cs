@@ -40,7 +40,7 @@ namespace Samples
     {
         /// <summary>
         /// This reifies NSharp as a type conforming to Reified&lt;CLR&gt; (TLegacy)
-        /// and leverages CLR's definition (TDerived) with specifics below
+        /// and leverages CLR's definition (TDerived) with specifics
         /// </summary>
         public static readonly NSharp Language = Reify<NSharp>();
 
