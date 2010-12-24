@@ -50,26 +50,29 @@ namespace Samples
         {
             /*
              *  A possible equivalent syntax for the fluent interface:
-             *  (special characters: "=", "<", ">", "[", "]", "#", "(", ")", "|", "$", "!", "*", "+", "?", '"', "{", "}", "/")
+             *  (special characters: "=", "<", ">", "[", "]", "@", "#", "(", ")", "|", "$", "!", "*", "+", "?", '"')
              *  
              *  // Identifier on the left of "=": the name of the pattern being defined
              *  // Identifiers on the right of "=" (outside tags): the names of the composing patterns
-             *  // Square brackets ([, ]): equivalent construct token for Let.Seq(...)
-             *  // Pound sign (#) at beginning of sequence: equivalent construct token for bool asToken = true
              *  // A <...> tag gives the pattern-matched Value's brand (as a parsing result information item)
-             *  HOTDOG = <HOTDOG>[# HOT ( HYPHEN | OPTSPACE ) DOG ]
+             *  // Square brackets ([ ]): equivalent construct token for sequence, Let.Seq(...)
+             *  // At sign (@) at beginning of sequence content: equivalent construct token for bool asToken = true
+             *  // Pipe symbol (|): equivalent construct token for choice, Let.Or(...)
+             *  HOTDOG = <HOTDOG>[@ HOT ( HYPHEN | OPTSPACE ) DOG ]
              *  
-             *  // Dollar sign ($) after closing parenthesis: equivalent construct token for Let.Expect(...)
+             *  // Dollar sign ($) after closing parenthesis: equivalent construct token for expected, Let.Expect(...)
              *  Det = ( <Det>[ ( A | THE ) ] )$
              *  ...
-             *  // Exclamation mark (!) in tag: equivalent construct token for Let.Error(...)
-             *  // Pound signs in tag: equivalent construct token for Let.Regex(...) (double quotes for Let.Token(...))
+             *  // Exclamation mark (!) in tag: equivalent construct token for error, Let.Error(...)
+             *  // Pound signs (#) in tag: equivalent construct token for regular expression, Let.Regex(...)
+             *  // (double quotes (") for string literal, Let.Token(...))
              *  UnknownWord = <unknown!>( <WORD #[a-z]+#> )
              *  ...
-             *  // Star symbol (*) after closing parenthesis: equivalent construct token for Let.Any(...)
+             *  // Star symbol (*) after closing parenthesis: equivalent construct token for zero or more, Let.Any(...)
+             *  // (plus sign (+) for one or more, Let.Some(...))
              *  OptAdjNoun = <OptAdjNoun>[ <OptAdjective>( <Adjective>[ Adjective SPACE ] )* Noun ]
              *  
-             *  // Question mark (?) after closing parenthesis: equivalent construct token for Let.Opt(...)
+             *  // Question mark (?) after closing parenthesis: equivalent construct token for optional, Let.Opt(...)
              *  OptAdverb = <OptAdverb>[ ( <Adverb>[ Adverb SPACE ] )? Verb ]
              *  ...
              */
