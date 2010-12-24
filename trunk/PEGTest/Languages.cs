@@ -664,7 +664,9 @@ namespace System.Languages
 
         private void Define(Type self)
         {
-            Derive(self, true, false);
+            if (!defined)
+                Derive(self, true, false);
+            defined = true;
             foreach (var item in Reified.Values)
                 item.Clear();
         }
@@ -1125,6 +1127,7 @@ namespace System.Languages
         internal ParseContext lastParse;
         internal Select Syntax;
         internal Select Accept;
+        internal bool defined;
         internal bool derived;
         internal bool refined;
         internal Select<Value> semantic;
