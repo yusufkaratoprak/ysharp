@@ -50,7 +50,7 @@ namespace Samples
         {
             /*
              *  A possible equivalent syntax for the fluent interface:
-             *  (special characters: "=", "<", ">", "[", "]", "#", "(", ")", "|", "!", "*", "+", "?", '"', "{", "}", "/")
+             *  (special characters: "=", "<", ">", "[", "]", "#", "(", ")", "|", "$", "!", "*", "+", "?", '"', "{", "}", "/")
              *  
              *  // Identifier on the left of "=": the name of the pattern being defined
              *  // Identifiers on the right of "=" (outside tags): the names of the composing patterns
@@ -59,8 +59,8 @@ namespace Samples
              *  // A <...> tag gives the pattern-matched Value's brand (as a parsing result information item)
              *  HOTDOG = <HOTDOG>[# HOT ( HYPHEN | OPTSPACE ) DOG ]
              *  
-             *  // Exclamation mark (!) after closing parenthesis: equivalent construct token for Let.Expect(...)
-             *  Det = ( <Det>[ ( A | THE ) ] )!
+             *  // Dollar sign ($) after closing parenthesis: equivalent construct token for Let.Expect(...)
+             *  Det = ( <Det>[ ( A | THE ) ] )$
              *  ...
              *  // Exclamation mark (!) in tag: equivalent construct token for Let.Error(...)
              *  // Pound signs in tag: equivalent construct token for Let.Regex(...) (double quotes for Let.Token(...))
