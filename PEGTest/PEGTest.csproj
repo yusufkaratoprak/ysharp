@@ -61,15 +61,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="EnglishStd.cs" />
-    <Compile Include="EnglishExt.cs" />
-    <Compile Include="YSharp.cs" />
-    <Compile Include="NSharp.cs" />
-    <Compile Include="Frenglish.cs" />
-    <Compile Include="English.cs" />
-    <Compile Include="French.cs" />
-    <Compile Include="Language.cs" />
-    <Compile Include="NaturalLanguage.cs" />
+    <Compile Include="Sample\Lang.CLR.cs" />
+    <Compile Include="Sample\Lang.EnglishStd.cs" />
+    <Compile Include="Sample\Lang.EnglishExt.cs" />
+    <Compile Include="Sample\Lang.YSharp.cs" />
+    <Compile Include="Sample\Lang.NSharp.cs" />
+    <Compile Include="Sample\Lang.Frenglish.cs" />
+    <Compile Include="Sample\Lang.English.cs" />
+    <Compile Include="Sample\Lang.French.cs" />
+    <Compile Include="Languages.cs" />
     <Compile Include="PEGTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2009, 2010 Cyril Jandia
+﻿/* Copyright (c) 2009, 2010, 2011 Cyril Jandia
  * 
  * http://www.ysharp.net/the.language/
  * 
