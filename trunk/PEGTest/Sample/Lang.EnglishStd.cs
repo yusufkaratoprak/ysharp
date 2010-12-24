@@ -39,7 +39,7 @@ namespace Samples
     {
         /// <summary>
         /// This reifies StandardEnglish as a type conforming to Reified&lt;English&gt; (TLegacy)
-        /// and leverages English's definition (TDerived) with specifics below
+        /// and leverages English's definition (TDerived) with specifics
         /// </summary>
         public static readonly StandardEnglish Language = Reify<StandardEnglish>();
 
