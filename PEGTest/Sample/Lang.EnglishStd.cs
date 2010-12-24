@@ -124,10 +124,10 @@ namespace Samples
             var OptAdverb = Let.Seq("OptAdverb", Let.Opt(Let.Seq("Adverb", Adverb, SPACE)), Verb);
             var NounPhrase = Let.Or("NounPhrase", Let.Seq("NounGroup", Det, SPACE, OptAdjNoun), OptAdjNoun);
             var VerbGroup = Let.Or(Let.Seq("VerbGroup", Let.Expect(OptAdverb), SPACE, Let.Expect(NounPhrase)), OptAdverb);
-            var phrase = Let.Seq("Phrase", Let.Expect(NounPhrase), Let.Expect(Let.Seq("VerbPhrase", SPACE, VerbGroup)));
-            var sentence = Let.Seq("Sentence", Let.Expect(phrase), Let.Expect(Let.Seq("Period", OPTSPACE, PERIOD)), OPTSPACE);
+            var Phrase = Let.Seq("Phrase", Let.Expect(NounPhrase), Let.Expect(Let.Seq("VerbPhrase", SPACE, VerbGroup)));
+            var Sentence = Let.Seq("Sentence", Let.Expect(Phrase), Let.Expect(Let.Seq("Period", OPTSPACE, PERIOD)), OPTSPACE);
 
-            return Let.Seq("syntax", OPTSPACE, Let.Expect(Let.Some("Sentences", sentence)));
+            return Let.Seq("syntax", OPTSPACE, Let.Expect(Let.Some("Sentences", Sentence)));
         }
 
         protected override Value Evaluate(string select, Value value)
