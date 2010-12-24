@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2009, 2010 Cyril Jandia
+﻿/* Copyright (c) 2009, 2010, 2011 Cyril Jandia
  * 
  * http://www.ysharp.net/the.language/
  * 
@@ -32,6 +32,7 @@ using System.Linq;
 using System.Text;
 
 using System.Languages;
+using Samples;
 
 namespace PEGTest
 {
@@ -39,29 +40,29 @@ namespace PEGTest
     {
         private static string quickNDirtyIndent = String.Empty;
 
-        private static void PrettyPrint(Let phrase)
+        private static void PrettyPrint(IPhrase phrase)
         {
             PrettyPrint(quickNDirtyIndent, phrase); 
         }
 
-        private static void PrettyPrint(string indent, Let phrase)
+        private static void PrettyPrint(string indent, IPhrase phrase)
         {
             PrettyPrint(indent, phrase, phrase.Line, phrase.Offset, phrase.Length, phrase.Ident, phrase.Literal);
         }
 
-        private static void PrettyPrint(string indent, Let phrase, int lno, int ofs, int len, string title, object val)
+        private static void PrettyPrint(string indent, IPhrase phrase, int lno, int ofs, int len, string title, object val)
         {
             Console.WriteLine(quickNDirtyIndent + String.Format("{0}\t\"{1}\" (line {2}) (ofs: {3}) (len: {4})", title, (val ?? String.Empty).ToString().Replace("\r\n", String.Empty), lno, ofs, len));
             quickNDirtyIndent += "  ";
-            foreach (Let item in phrase.Content)
+            foreach (IPhrase item in phrase.Content)
                 PrettyPrint(indent, item, item.Line, item.Offset, item.Length, item.Ident, item.Literal);
             quickNDirtyIndent = quickNDirtyIndent.Substring(0, quickNDirtyIndent.Length - 2);
         }
 
         static void Main(string[] args)
         {
-            Language language;
-            bool en, en2, fg, fr, mt, ys;
+            ILanguage language;
+            bool en, en2, fg, fr, mt, ns, ys;
             ConsoleKeyInfo keyInfo;
             Console.WriteLine();
             Console.WriteLine("Choose your language :");
@@ -78,15 +79,18 @@ namespace PEGTest
             fg = ((keyInfo.KeyChar == 'F') || (keyInfo.KeyChar == 'f'));
             fr = ((keyInfo.KeyChar == 'R') || (keyInfo.KeyChar == 'r'));
             mt = ((keyInfo.KeyChar == 'V') || (keyInfo.KeyChar == 'v'));
+            ns = ((keyInfo.KeyChar == 'S') || (keyInfo.KeyChar == 's'));
             ys = ((keyInfo.KeyChar == 'Y') || (keyInfo.KeyChar == 'y'));
-            if (!(en || en2 || fg || fr || mt || ys))
+            if (!(en || en2 || fg || fr || mt || ns || ys))
                 return;
-            var empty = Language.Empty; // note this works, too: var empty = Language.Void.Language
-            var english = StandardEnglish.Language;
-            var extended = ExtendedEnglish.Language;
-            var frenglish = Frenglish.Language;
-            var french = French.Language;
-            language = (mt ? empty : (ys ? new YSharp() : (!fr ? (fg ? (Language)frenglish : (en2 ? (Language)extended : (Language)english)) : (Language)french)));
+            var empty = Language.Empty; // note this works, too: var empty = Language.Void.Language;
+            ILanguage english = StandardEnglish.Language;
+            ILanguage extended = ExtendedEnglish.Language;
+            ILanguage frenglish = Frenglish.Language;
+            ILanguage french = French.Language;
+            ILanguage nsharp = NSharp.Language;
+            ILanguage ysharp = YSharp.Language;
+            language = (mt ? empty : ((ns || ys) ? (ys ? ysharp : nsharp) : (!fr ? (fg ? frenglish : (en2 ? extended : english)) : french)));
             while ((keyInfo.KeyChar != 'X') && (keyInfo.KeyChar != 'x'))
             {
                 string text = String.Empty;
@@ -94,7 +98,7 @@ namespace PEGTest
                 Value parsed;
                 Console.Clear();
                 Console.WriteLine();
-                if (language is Language<English>)
+                if (language is ILanguage<English>)
                 {
                     Console.WriteLine("articles :\ta, the");
                     Console.WriteLine("nouns :\t\tboy, boyfriend, cake, cat, coffee, dog, girl, girlfriend, man, woman");
@@ -117,7 +121,7 @@ namespace PEGTest
                     text += String.Concat(line, "\r\n");
                 text = text.TrimEnd();
                 parsed = language.Parse(text);
-                if (language is Language<English>)
+                if (language is ILanguage<English>)
                 {
                     Console.WriteLine("Syntax analysis of {0} input :", language.GetType().FullName);
                     Console.WriteLine();

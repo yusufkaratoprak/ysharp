@@ -9,7 +9,7 @@
             <property name="OutputDirectory" value=".\doc\" />
             <property name="HtmlHelpName" value="System.Languages" />
             <property name="Title" value="System.Languages" />
-            <property name="CopyrightText" value="(c) 2009, 2010 Cyril J. Jandia" />
+            <property name="CopyrightText" value="(c) 2009, 2010, 2011 Cyril J. Jandia" />
             <property name="FeedbackEmailAddress" value="ysharp.design@gmail.com" />
             <property name="Preliminary" value="True" />
         </documenter>
@@ -17,7 +17,7 @@
             <property name="OutputDirectory" value=".\doc\" />
             <property name="HtmlHelpName" value="System.Languages" />
             <property name="Title" value="System.Languages" />
-            <property name="CopyrightText" value="(c) 2009, 2010 Cyril J. Jandia" />
+            <property name="CopyrightText" value="(c) 2009, 2010, 2011 Cyril J. Jandia" />
             <property name="FeedbackEmailAddress" value="ysharp.design@gmail.com" />
             <property name="Preliminary" value="True" />
         </documenter>

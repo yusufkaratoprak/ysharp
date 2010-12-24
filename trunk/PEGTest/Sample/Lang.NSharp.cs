@@ -1,7 +1,7 @@
-Copyright (c) 2009, 2010, 2011 Cyril Jandia
-
-http://www.ysharp.net/the.language/
-
+﻿/* Copyright (c) 2009, 2010, 2011 Cyril Jandia
+ * 
+ * http://www.ysharp.net/the.language/
+ * 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
 ``Software''), to deal in the Software without restriction, including
@@ -24,4 +24,37 @@ OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Cyril Jandia shall
 not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
-from Cyril Jandia.
+from Cyril Jandia. */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+
+using System.Languages;
+
+namespace Samples
+{
+    public sealed class NSharp : Language<CLR>
+    {
+        /// <summary>
+        /// This reifies NSharp as a type conforming to Reified&lt;CLR&gt; (TLegacy)
+        /// and leverages CLR's definition (TDerived) with specifics below
+        /// </summary>
+        public static readonly NSharp Language = Reify<NSharp>();
+
+        public NSharp() : this(null) { }
+        public NSharp(Select chain) : base(chain) { }
+
+        protected override Select Define()
+        {
+            var SPACE = Let.Regex("SPACE", @"\s+");
+            var OPTSPACE = Let.Opt(SPACE);
+            var VOID = Let.Token("VOID", "void");
+            var SEMI = Let.Token("SEMI", ";");
+            var Statement = Let.Seq("Statement", Let.Expect(VOID), Let.Expect(Let.Seq("Semi", OPTSPACE, SEMI)), OPTSPACE);
+            return Let.Seq("syntax", OPTSPACE, Let.Expect(Let.Some("Statements", Statement)));
+        }
+    }
+}
