@@ -45,7 +45,7 @@ namespace Samples
     {
         /// <summary>
         /// This reifies Frenglish as a type conforming to Reified&lt;English&gt; (TLegacy)
-        /// and leverages StandardEnglish's definition (TDerived) with specifics below
+        /// and leverages StandardEnglish's definition (TDerived) with specifics
         /// </summary>
         public static readonly Frenglish Language = Reify<Frenglish>();
 
@@ -59,7 +59,7 @@ namespace Samples
             var RENDEZ = Let.Token("RENDEZ", "rendez");
             var VOUS = Let.Token("VOUS", "vous");
             var RENDEZ_VOUS = Let.Seq("RENDEZ_VOUS", RENDEZ, Let.Or(Let["@HYPHEN"], Let["@SPACE"]), VOUS);
-            var ForeignNoun = Let.Or("Foreign Noun", CONNOISSEUR, RENDEZ_VOUS);
+            var ForeignNoun = Let.Or("ForeignNoun", CONNOISSEUR, RENDEZ_VOUS);
             return null;
         }
 
@@ -68,7 +68,7 @@ namespace Samples
         {
             var CHIC = Let.Token("CHIC", "chic");
             var PETITE = Let.Token("PETITE", "petite");
-            var ForeignAdj = Let.Or("Foreign Adj", CHIC, PETITE);
+            var ForeignAdj = Let.Or("ForeignAdj", CHIC, PETITE);
             return null;
         }
     }

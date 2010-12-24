@@ -40,7 +40,7 @@ namespace Samples
     {
         /// <summary>
         /// This reifies YSharp as a type conforming to Reified&lt;CLR&gt; (TLegacy)
-        /// and leverages NSharp's definition (TDerived) with specifics below
+        /// and can leverage NSharp's definition (TDerived) with specifics
         /// </summary>
         public static readonly YSharp Language = Reify<YSharp>();
 

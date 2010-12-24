@@ -48,7 +48,7 @@ namespace Samples
 
         /// <summary>
         /// This reifies ExtendedEnglish as a type conforming to Reified&lt;English&gt; (TLegacy)
-        /// and leverages StandardEnglish's definition (TDerived) with specifics below
+        /// and leverages StandardEnglish's definition (TDerived) with specifics
         /// </summary>
         public static readonly ExtendedEnglish Language = Reify<ExtendedEnglish>();
 
@@ -66,14 +66,14 @@ namespace Samples
                         var RENDEZ = let.Token("RENDEZ", "rendez");
                         var VOUS = let.Token("VOUS", "vous");
                         var RENDEZ_VOUS = let.Seq("RENDEZ_VOUS", RENDEZ, let.Or(let["@HYPHEN"], let["@SPACE"]), VOUS);
-                        var ForeignNoun = let.Or("Foreign Noun", CONNOISSEUR, RENDEZ_VOUS);
+                        var ForeignNoun = let.Or("ForeignNoun", CONNOISSEUR, RENDEZ_VOUS);
                         return null;
                     },
                     delegate(Select let)
                     {
                         var CHIC = let.Token("CHIC", "chic");
                         var PETITE = let.Token("PETITE", "petite");
-                        var ForeignAdj = let.Or("Foreign Adj", CHIC, PETITE);
+                        var ForeignAdj = let.Or("ForeignAdj", CHIC, PETITE);
                         return null;
                     }
                 );
