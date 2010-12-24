@@ -39,7 +39,7 @@ namespace Samples
     /// Frenglish is just StandardEnglish with the same amendments as ExtendedEnglish's,
     /// but instead built-in via [Syntax]-marked methods.
     /// 
-    /// (Amendments implemented in Frenglish.FrenchNoun and Frenglish.FrenchAdj methods.)
+    /// (Amendments implemented in Frenglish.FrenchNoun and Frenglish.FrenchAdjective methods.)
     /// </summary>
     public sealed class Frenglish : Language<StandardEnglish, English>
     {
@@ -64,11 +64,11 @@ namespace Samples
         }
 
         [Syntax]
-        private Select FrenchAdj()
+        private Select FrenchAdjective()
         {
             var CHIC = Let.Token("CHIC", "chic");
             var PETITE = Let.Token("PETITE", "petite");
-            var ForeignAdj = Let.Or("ForeignAdj", CHIC, PETITE);
+            var ForeignAdj = Let.Or("ForeignAdjective", CHIC, PETITE);
             return null;
         }
     }
