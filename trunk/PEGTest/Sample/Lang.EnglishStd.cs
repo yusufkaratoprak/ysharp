@@ -70,7 +70,7 @@ namespace Samples
              *  ...
              *  // Star symbol (*) after closing parenthesis: equivalent construct token for zero or more, Let.Any(...)
              *  // (plus sign (+) for one or more, Let.Some(...))
-             *  OptAdjNoun = <OptAdjNoun>[ <OptAdjective>( <Adjective>[ Adjective SPACE ] )* Noun ]
+             *  OptAdjsNoun = <OptAdjNoun>[ <OptAdjectives>( <Adjective>[ Adjective SPACE ] )* Noun ]
              *  
              *  // Question mark (?) after closing parenthesis: equivalent construct token for optional, Let.Opt(...)
              *  OptAdverb = <OptAdverb>[ ( <Adverb>[ Adverb SPACE ] )? Verb ]
@@ -120,12 +120,12 @@ namespace Samples
             var UnknownWord = Let.Error("unknown", Let.Regex("WORD", "[a-z]+"));
             var Noun = Let.Seq("Noun", Let.Or(EnglishNoun, Let["ForeignNoun"], UnknownWord));
             var Verb = Let.Expect(Let.Seq("Verb", Let.Or(EATS, DRINKS, HAS, HATES, KICKS, LOVES, PETS, UnknownWord)));
-            var Adjective = Let.Or(SO_CALLED, BIG, SMALL, BLACK, WHITE, Let.Seq(HOT, Let.Not(Let.Seq(OPTSPACE, DOG))), COLD, SWEET, Let["ForeignAdj"]);
+            var Adjective = Let.Or(SO_CALLED, BIG, SMALL, BLACK, WHITE, Let.Seq(HOT, Let.Not(Let.Seq(OPTSPACE, DOG))), COLD, SWEET, Let["ForeignAdjective"]);
             var Adverb = Let.Or(CRUDELY, GENTLY, QUICKLY, SLOWLY);
 
-            var OptAdjNoun = Let.Seq("OptAdjNoun", Let.Any("OptAdjective", Let.Seq("Adjective", Adjective, SPACE)), Noun);
+            var OptAdjsNoun = Let.Seq("OptAdjsNoun", Let.Any("OptAdjectives", Let.Seq("Adjective", Adjective, SPACE)), Noun);
             var OptAdverb = Let.Seq("OptAdverb", Let.Opt(Let.Seq("Adverb", Adverb, SPACE)), Verb);
-            var NounPhrase = Let.Or("NounPhrase", Let.Seq("NounGroup", Det, SPACE, OptAdjNoun), OptAdjNoun);
+            var NounPhrase = Let.Or("NounPhrase", Let.Seq("NounGroup", Det, SPACE, OptAdjsNoun), OptAdjsNoun);
             var VerbGroup = Let.Or(Let.Seq("VerbGroup", Let.Expect(OptAdverb), SPACE, Let.Expect(NounPhrase)), OptAdverb);
             var Phrase = Let.Seq("Phrase", Let.Expect(NounPhrase), Let.Expect(Let.Seq("VerbPhrase", SPACE, VerbGroup)));
             var Sentence = Let.Seq("Sentence", Let.Expect(Phrase), Let.Expect(Let.Seq("Period", OPTSPACE, PERIOD)), OPTSPACE);

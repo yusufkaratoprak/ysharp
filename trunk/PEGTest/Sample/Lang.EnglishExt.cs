@@ -73,7 +73,7 @@ namespace Samples
                     {
                         var CHIC = let.Token("CHIC", "chic");
                         var PETITE = let.Token("PETITE", "petite");
-                        var ForeignAdj = let.Or("ForeignAdj", CHIC, PETITE);
+                        var ForeignAdj = let.Or("ForeignAdjective", CHIC, PETITE);
                         return null;
                     }
                 );
