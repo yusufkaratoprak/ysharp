@@ -70,7 +70,7 @@ namespace Samples
              *  ...
              *  // Star symbol (*) after closing parenthesis: equivalent construct token for zero or more, Let.Any(...)
              *  // (plus sign (+) for one or more, Let.Some(...))
-             *  OptAdjsNoun = <OptAdjNoun>[ <OptAdjectives>( <Adjective>[ Adjective SPACE ] )* Noun ]
+             *  OptAdjsNoun = <OptAdjsNoun>[ <OptAdjectives>( <Adjective>[ Adjective SPACE ] )* Noun ]
              *  
              *  // Question mark (?) after closing parenthesis: equivalent construct token for optional, Let.Opt(...)
              *  OptAdverb = <OptAdverb>[ ( <Adverb>[ Adverb SPACE ] )? Verb ]
