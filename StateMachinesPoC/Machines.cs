@@ -57,7 +57,7 @@ namespace Machines
 	public interface IState<TValue> : IStatus<TValue>, IEnumerable<TValue>, IEnumerator<TValue>, IState
 	{
 		IState<TValue> Build<TContext>(TContext context);
-		IState<TValue> Build<TContext>(bool ignoreAttributes, TContext context);
+		IState<TValue> Build<TContext>(TContext context, bool ignoreAttributes);
 		IState<TValue> Using<TContext>(TContext context);
 		IState<TValue> Using<TContext>(TContext context, TValue start);
 		IState<TValue> Using<TContext>(TContext context, object start);
@@ -178,27 +178,27 @@ namespace Machines
 			}
 		}
 
-		protected IState<TValue> Build(bool ignoreAttributes, object context)
+		protected IState<TValue> Build(object context, bool ignoreAttributes)
 		{
-			return Build(null, ignoreAttributes, context);
+			return Build(null, context, ignoreAttributes);
 		}
 
 		protected IState<TValue> Build(Transition<TValue, Trigger, TArgs>[] transitions, object context)
 		{
-			return Build(transitions, false, context);
+			return Build(transitions, context, false);
 		}
 
-		protected IState<TValue> Build(Transition<TValue, Trigger, TArgs>[] transitions, bool ignoreAttributes, object context)
+		protected IState<TValue> Build(Transition<TValue, Trigger, TArgs>[] transitions, object context, bool ignoreAttributes)
 		{
-			return Build(transitions as IEnumerable, ignoreAttributes, context);
+			return Build(transitions as IEnumerable, context, ignoreAttributes);
 		}
 
 		protected IState<TValue> Build(IEnumerable transitions, object context)
 		{
-			return Build(transitions, false, context);
+			return Build(transitions, context, false);
 		}
 
-		protected IState<TValue> Build(IEnumerable transitions, bool ignoreAttributes, object context)
+		protected IState<TValue> Build(IEnumerable transitions, object context, bool ignoreAttributes)
 		{
 			if (Edges == null)
 			{
@@ -299,24 +299,24 @@ namespace Machines
 
 		public IState Build(object context)
 		{
-			return Build<object>(false, context);
+			return Build<object>(context);
 		}
 
 		public IState Build(bool ignoreAttributes)
 		{
-			return Build<object>(ignoreAttributes, null);
+			return Build<object>(null, ignoreAttributes);
 		}
 
 		public IState<TValue> Build<TContext>(TContext context)
 		{
-			return Build<TContext>(false, context);
+			return Build<TContext>(context, false);
 		}
 
-		public IState<TValue> Build<TContext>(bool ignoreAttributes, TContext context)
+		public IState<TValue> Build<TContext>(TContext context, bool ignoreAttributes)
 		{
 			if ((context != null) && !Accept(context))
 				throw new InvalidOperationException(String.Format("context type or value not supported ({0})", typeof(TContext).FullName));
-			return Build(ignoreAttributes, context as object);
+			return Build(context as object, ignoreAttributes);
 		}
 
 		public IState Start()
@@ -584,8 +584,6 @@ namespace Machines
 		{
 			return Using(context, start, null);
 		}
-
-		//public TValue StartValue { get; private set; }
 
 		public object Context { get; private set; }
 	}

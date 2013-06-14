@@ -49,7 +49,7 @@ namespace WatchingTVSample
 	public class TVState : State<TVStatus, TVEvent, int>
 	{
 		// The call to (protected) Build() is necessary to build the internal state/transition graph:
-		public TVState() : base() { Build(); }
+		public TVState() { Build(); }
 
 		// This method is called during each allowed transition (BEFORE the state change),
 		// and whether or not the from/to states are distinct (sometimes a transition just loops over the same state):
