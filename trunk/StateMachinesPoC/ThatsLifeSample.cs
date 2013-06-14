@@ -45,7 +45,7 @@ namespace ThatsLifeSample
 	public class Individual : State<LifeStatus>
 	{
 		// The call to (protected) Build() is necessary to build the internal state/transition graph:
-		public Individual() : base() { Build(); }
+		public Individual() { Build(); }
 
 		public static void StatusChange(IState<LifeStatus> state, LifeStatus from, string trigger, LifeStatus to, object args)
 		{
