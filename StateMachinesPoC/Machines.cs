@@ -470,9 +470,9 @@ namespace Machines
 	public interface IMachine<TValue> : IEnumerable<TValue>
 	{
 		IState<TValue> Using();
-		IState<TValue> Using(IDisposable context);
-		IState<TValue> Using(IDisposable context, TValue start);
-		IDisposable Context { get; }
+		IState<TValue> Using(object context);
+		IState<TValue> Using(object context, TValue start);
+		object Context { get; }
 	}
 
 	public interface IMachine<TState, TValue> : IMachine<TValue>
@@ -493,7 +493,7 @@ namespace Machines
 	public class Machine<TState, TValue, Trigger, TArgs> : IMachine<TState, TValue>
 		where TState : IState<TValue, Trigger, TArgs>
 	{
-		protected IState<TValue> Using(IDisposable context, params object[] args)
+		protected IState<TValue> Using(object context, params object[] args)
 		{
 			IState<TValue> state;
 			if (context != null)
@@ -536,17 +536,17 @@ namespace Machines
 			return Using(Context, start);
 		}
 
-		public IState<TValue> Using(IDisposable context)
+		public IState<TValue> Using(object context)
 		{
 			return Using(context, null);
 		}
 
-		public IState<TValue> Using(IDisposable context, TValue start)
+		public IState<TValue> Using(object context, TValue start)
 		{
 			return Using(context, start, null);
 		}
 
-		public IDisposable Context { get; private set; }
+		public object Context { get; private set; }
 	}
 
 	public interface ISignalling : IDisposable
