@@ -40,13 +40,6 @@ namespace Machines
 
 	public interface IState : IStatus, IEnumerable, IEnumerator, IDisposable
 	{
-		IState Build();
-		IState Build(object context);
-		IState Build(bool ignoreAttributes);
-		IState Using();
-		IState Using(object context);
-		IState Start();
-		IState Start(object start);
 		bool Consume(object input);
 		IEnumerator Input { get; }
 		bool Completed { get; }
@@ -56,11 +49,12 @@ namespace Machines
 
 	public interface IState<TValue> : IStatus<TValue>, IEnumerable<TValue>, IEnumerator<TValue>, IState
 	{
-		IState<TValue> Build<TContext>(TContext context);
-		IState<TValue> Build<TContext>(TContext context, bool ignoreAttributes);
-		IState<TValue> Using<TContext>(TContext context);
-		IState<TValue> Using<TContext>(TContext context, TValue start);
-		IState<TValue> Using<TContext>(TContext context, object start);
+		IState<TValue> Build(object context);
+		IState<TValue> Build(object context, bool ignoreAttributes);
+		IState<TValue> Using();
+		IState<TValue> Using(object context);
+		IState<TValue> Using(object context, TValue start);
+		IState<TValue> Start();
 		IState<TValue> Start(TValue start);
 	}
 
@@ -83,7 +77,6 @@ namespace Machines
 	public class State<TValue, Trigger, TArgs> : IState<TValue, Trigger, TArgs>
 	{
 		protected IDictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>> Edges { get; private set; }
-		protected IDisposable Source { get; private set; }
 		protected TValue StartValue { get; private set; }
 		public bool HasValue { get { return (Status != null); } }
 		public object Status { get; protected set; }
@@ -101,7 +94,7 @@ namespace Machines
 			}
 		}
 		public IEnumerator Input { get; private set; }
-		public bool Completed { get; private set; }
+		public bool Completed { get { return (Context == null); } }
 		public object Context { get; private set; }
 
 		private void AddTransition(IDictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>> edges, TValue source, Trigger trigger, TValue target, Handler<TValue, Trigger, TArgs> handler)
@@ -139,48 +132,42 @@ namespace Machines
 			}
 		}
 
+		protected void Detach()
+		{
+			Detach(false);
+		}
+
 		protected void Detach(bool force)
 		{
 			if (force || IsFinal)
-			{
-				Observe(null);
-				Input = null;
-			}
+				Dispose();
 		}
 
-		protected void Observe(IDisposable source)
+		protected void Observe(object source)
 		{
 			Observe(source, true);
 		}
 
-		protected void Observe(IDisposable source, bool reattach)
+		protected void Observe(object source, bool reattach)
 		{
-			IDisposable former = Source;
-			Source = source;
+			object current = Context;
 			if (source == null)
 			{
-				if ((former != null) && reattach)
+				Context = source;
+				if ((current != null) && reattach)
 				{
 					bool finish = true;
-					if (former is ISignalSource<Trigger>)
-						finish = ((ISignalSource<Trigger>)former).Done(this);
-					else if (former is ISignalSource<Tuple<Trigger, TArgs>>)
-						finish = ((ISignalSource<Tuple<Trigger, TArgs>>)former).Done(this);
-					if (finish)
-						former.Dispose();
+					if (current is ISignalSource<Trigger>)
+						finish = ((ISignalSource<Trigger>)current).IsDone(this);
+					else if (current is ISignalSource<Tuple<Trigger, TArgs>>)
+						finish = ((ISignalSource<Tuple<Trigger, TArgs>>)current).IsDone(this);
+					if (finish && (current is IDisposable))
+						((IDisposable)current).Dispose();
 				}
+				Input = null;
 			}
 			else
-			{
 				Observe(null, false);
-				Completed = false;
-				Source = source;
-			}
-		}
-
-		protected IState<TValue> Build(object context, bool ignoreAttributes)
-		{
-			return Build(null, context, ignoreAttributes);
 		}
 
 		protected IState<TValue> Build(Transition<TValue, Trigger, TArgs>[] transitions, object context)
@@ -229,6 +216,15 @@ namespace Machines
 			return this;
 		}
 
+		protected IState<TValue> Using(object context, object start)
+		{
+			if (!Accept(context))
+				throw new InvalidOperationException(String.Format("context type or value not supported ({0})", ((context != null) ? context.GetType().FullName : "null")));
+			Attach(context);
+			Reset((start != null) ? (TValue)start : StartValue);
+			return this;
+		}
+
 		protected virtual bool Accept(object context)
 		{
 			return ((context is IEnumerable<Trigger>) || (context is IObservable<Trigger>) || (context is IObservable<Tuple<Trigger, TArgs>>));
@@ -250,12 +246,12 @@ namespace Machines
 
 		protected virtual bool? OnError(Exception error)
 		{
-			return false;
+			return null;
 		}
 
 		protected virtual bool? OnError(Exception error, Trigger trigger, TArgs args, TValue next)
 		{
-			return false;
+			return null;
 		}
 
 		public void Reset()
@@ -263,70 +259,39 @@ namespace Machines
 			Using();
 		}
 
-		public IState Using()
+		public IState<TValue> Using()
 		{
 			return Using(null);
 		}
 
-		public IState Using(object context)
+		public IState<TValue> Using(object context)
 		{
-			return Using<object>(context);
+			return Using(context, default(TValue));
 		}
 
-		public IState<TValue> Using<TContext>(TContext context)
+		public IState<TValue> Using(object context, TValue start)
 		{
-			return Using<TContext>(context, null);
+			return Using(context, start as object);
 		}
 
-		public IState<TValue> Using<TContext>(TContext context, TValue start)
-		{
-			return Using<TContext>(context, start as object);
-		}
-
-		public IState<TValue> Using<TContext>(TContext context, object start)
-		{
-			if ((context != null) && !Accept(context))
-				throw new InvalidOperationException(String.Format("context type or value not supported ({0})", typeof(TContext).FullName));
-			Attach(context);
-			Reset((start != null) ? (TValue)start : StartValue);
-			return this;
-		}
-
-		public IState Build()
+		public IState<TValue> Build()
 		{
 			return Build(null);
 		}
 
-		public IState Build(object context)
+		public IState<TValue> Build(object context)
 		{
-			return Build<object>(context);
+			return Build(context, false);
 		}
 
-		public IState Build(bool ignoreAttributes)
+		public IState<TValue> Build(object context, bool ignoreAttributes)
 		{
-			return Build<object>(null, ignoreAttributes);
+			return Build(null, context, ignoreAttributes);
 		}
 
-		public IState<TValue> Build<TContext>(TContext context)
-		{
-			return Build<TContext>(context, false);
-		}
-
-		public IState<TValue> Build<TContext>(TContext context, bool ignoreAttributes)
-		{
-			if ((context != null) && !Accept(context))
-				throw new InvalidOperationException(String.Format("context type or value not supported ({0})", typeof(TContext).FullName));
-			return Build(context as object, ignoreAttributes);
-		}
-
-		public IState Start()
+		public IState<TValue> Start()
 		{
 			return Start(default(TValue));
-		}
-
-		public IState Start(object start)
-		{
-			return Start((TValue)start);
 		}
 
 		public IState<TValue> Start(TValue start)
@@ -361,7 +326,7 @@ namespace Machines
 			else if (input is KeyValuePair<Trigger, TArgs>)
 				return MoveNext((KeyValuePair<Trigger, TArgs>)input);
 			else
-				return true;
+				return false;
 		}
 
 		public virtual bool MoveNext()
@@ -380,7 +345,7 @@ namespace Machines
 					}
 				}
 				else
-					return true;
+					return false;
 			}
 			else
 			{
@@ -444,7 +409,7 @@ namespace Machines
 						Current = next;
 						OnStateChanged(from, trigger, args);
 					}
-					Detach(false);
+					Detach();
 					return true;
 				}
 				else
@@ -452,7 +417,7 @@ namespace Machines
 			}
 			else
 			{
-				Detach(false);
+				Detach();
 				return false;
 			}
 		}
@@ -465,32 +430,28 @@ namespace Machines
 
 		void IObserver<Trigger>.OnCompleted()
 		{
-			if (Completed) return;
-			Observe(null);
-			Completed = true;
+			if (!Completed)
+				Dispose();
 		}
 
 		void IObserver<Tuple<Trigger, TArgs>>.OnCompleted()
 		{
-			if (Completed) return;
-			Observe(null);
-			Completed = true;
+			if (!Completed)
+				Dispose();
 		}
 
 		void IObserver<Trigger>.OnError(Exception error)
 		{
 			bool? handled = OnError(error);
-			if (!handled.HasValue || handled.Value)
-				return;
-			Observe(null);
+			if (handled.HasValue && !handled.Value)
+				Dispose();
 		}
 
 		void IObserver<Tuple<Trigger, TArgs>>.OnError(Exception error)
 		{
 			bool? handled = OnError(error);
-			if (!handled.HasValue || handled.Value)
-				return;
-			Observe(null);
+			if (handled.HasValue && !handled.Value)
+				Dispose();
 		}
 
 		void IObserver<Trigger>.OnNext(Trigger value)
@@ -509,9 +470,9 @@ namespace Machines
 	public interface IMachine<TValue> : IEnumerable<TValue>
 	{
 		IState<TValue> Using();
-		IState<TValue> Using(object context);
-		IState<TValue> Using(object context, TValue start);
-		object Context { get; }
+		IState<TValue> Using(IDisposable context);
+		IState<TValue> Using(IDisposable context, TValue start);
+		IDisposable Context { get; }
 	}
 
 	public interface IMachine<TState, TValue> : IMachine<TValue>
@@ -532,7 +493,7 @@ namespace Machines
 	public class Machine<TState, TValue, Trigger, TArgs> : IMachine<TState, TValue>
 		where TState : IState<TValue, Trigger, TArgs>
 	{
-		protected IState<TValue> Using(object context, params object[] args)
+		protected IState<TValue> Using(IDisposable context, params object[] args)
 		{
 			IState<TValue> state;
 			if (context != null)
@@ -575,17 +536,17 @@ namespace Machines
 			return Using(Context, start);
 		}
 
-		public IState<TValue> Using(object context)
+		public IState<TValue> Using(IDisposable context)
 		{
 			return Using(context, null);
 		}
 
-		public IState<TValue> Using(object context, TValue start)
+		public IState<TValue> Using(IDisposable context, TValue start)
 		{
 			return Using(context, start, null);
 		}
 
-		public object Context { get; private set; }
+		public IDisposable Context { get; private set; }
 	}
 
 	public interface ISignalling : IDisposable
@@ -607,7 +568,8 @@ namespace Machines
 
 	public interface ISignalSource : ISignalling
 	{
-		bool Done(object observer);
+		bool IsDone();
+		bool IsDone(object observer);
 	}
 
 	public interface ISignalSource<Trigger, TArgs> : ISignalSource<Tuple<Trigger, TArgs>>, ISignalling<Trigger, TArgs>
@@ -616,7 +578,7 @@ namespace Machines
 
 	public interface ISignalSource<TSignal> : ISignalling<TSignal>, ISignalSource
 	{
-		bool Done(IObserver<TSignal> observer);
+		bool IsDone(IObserver<TSignal> observer);
 	}
 
 	public class SignalSource : SignalSource<string> { }
@@ -687,7 +649,7 @@ namespace Machines
 
 		public void Dispose()
 		{
-			Done(null);
+			IsDone(null);
 		}
 
 		public IDisposable Subscribe(IObserver<TSignal> observer)
@@ -708,12 +670,17 @@ namespace Machines
 			return this;
 		}
 
-		public bool Done(object observer)
+		public bool IsDone()
 		{
-			return Done(Ensure<IDisposable>(observer as IObserver<TSignal>, true) as IObserver<TSignal>);
+			return IsDone(null);
 		}
 
-		public bool Done(IObserver<TSignal> observer)
+		public bool IsDone(object observer)
+		{
+			return IsDone(Ensure<IDisposable>(observer as IObserver<TSignal>, true) as IObserver<TSignal>);
+		}
+
+		public bool IsDone(IObserver<TSignal> observer)
 		{
 			if (observer == null)
 			{
