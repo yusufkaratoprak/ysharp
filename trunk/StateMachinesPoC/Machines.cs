@@ -578,7 +578,6 @@ namespace Machines
 	public interface ISignalSource : ISignalling
 	{
 		bool IsDone();
-		bool IsDone(object observer);
 	}
 
 	public interface ISignalSource<Trigger, TArgs> : ISignalSource<Tuple<Trigger, TArgs>>, ISignalling<Trigger, TArgs>
@@ -618,22 +617,13 @@ namespace Machines
 
 		protected object Ensure<TSubject>(object subject)
 		{
-			return Ensure<TSubject>(subject, false);
-		}
-
-		protected object Ensure<TSubject>(object subject, bool nullable)
-		{
 			if (subject != null)
 			{
 				if (!(subject is TSubject))
 					throw new InvalidOperationException(String.Format("subject must conform to {0}", typeof(TSubject).FullName));
 			}
 			else
-			{
-				if (!nullable)
-					throw new ArgumentNullException("subject", "cannot be null");
-				return null;
-			}
+				throw new ArgumentNullException("subject", "cannot be null");
 			return (TSubject)subject;
 		}
 
@@ -682,11 +672,6 @@ namespace Machines
 		public bool IsDone()
 		{
 			return IsDone(null);
-		}
-
-		public bool IsDone(object observer)
-		{
-			return IsDone(Ensure<IDisposable>(observer as IObserver<TSignal>, true) as IObserver<TSignal>);
 		}
 
 		public bool IsDone(IObserver<TSignal> observer)
