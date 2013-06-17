@@ -44,7 +44,7 @@ namespace ThatsLifeSample
 	[LifeTransition(From = LifeStatus.Retired,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
 	public class Individual : State<LifeStatus>
 	{
-		// The call to (protected) Build() is necessary to build the internal state/transition graph:
+		// The call to Build() is necessary to build the internal state/transition graph:
 		public Individual() { Build(); }
 
 		public static void StatusChange(IState<LifeStatus> state, LifeStatus from, string trigger, LifeStatus to, object args)

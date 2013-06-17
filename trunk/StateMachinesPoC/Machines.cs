@@ -49,6 +49,7 @@ namespace Machines
 
 	public interface IState<TValue> : IStatus<TValue>, IEnumerable<TValue>, IEnumerator<TValue>, IState
 	{
+		IState<TValue> Build();
 		IState<TValue> Build(object context);
 		IState<TValue> Build(object context, bool ignoreAttributes);
 		IState<TValue> Using();
@@ -124,12 +125,28 @@ namespace Machines
 			if (context != null)
 			{
 				Observe(null);
-				if (context is IObservable<Trigger>)
-					Observe(((IObservable<Trigger>)context).Subscribe(this));
-				else if (context is IObservable<Tuple<Trigger, TArgs>>)
-					Observe(((IObservable<Tuple<Trigger, TArgs>>)context).Subscribe(this));
+				Link(context);
 				Context = context;
 			}
+		}
+
+		protected virtual void Link(object context)
+		{
+			if (context is IObservable<Trigger>)
+				Observe(((IObservable<Trigger>)context).Subscribe(this));
+			else if (context is IObservable<Tuple<Trigger, TArgs>>)
+				Observe(((IObservable<Tuple<Trigger, TArgs>>)context).Subscribe(this));
+		}
+
+		protected virtual void Unlink(object context)
+		{
+			bool finish = true;
+			if (context is ISignalSource<Trigger>)
+				finish = ((ISignalSource<Trigger>)context).IsDone(this);
+			else if (context is ISignalSource<Tuple<Trigger, TArgs>>)
+				finish = ((ISignalSource<Tuple<Trigger, TArgs>>)context).IsDone(this);
+			if (finish && (context is IDisposable))
+				((IDisposable)context).Dispose();
 		}
 
 		protected void Detach()
@@ -140,7 +157,7 @@ namespace Machines
 		protected void Detach(bool force)
 		{
 			if (force || IsFinal)
-				Dispose();
+				Observe(null);
 		}
 
 		protected void Observe(object source)
@@ -155,15 +172,7 @@ namespace Machines
 			{
 				Context = source;
 				if ((current != null) && reattach)
-				{
-					bool finish = true;
-					if (current is ISignalSource<Trigger>)
-						finish = ((ISignalSource<Trigger>)current).IsDone(this);
-					else if (current is ISignalSource<Tuple<Trigger, TArgs>>)
-						finish = ((ISignalSource<Tuple<Trigger, TArgs>>)current).IsDone(this);
-					if (finish && (current is IDisposable))
-						((IDisposable)current).Dispose();
-				}
+					Unlink(current);
 				Input = null;
 			}
 			else
