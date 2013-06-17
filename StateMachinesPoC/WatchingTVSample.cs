@@ -48,7 +48,7 @@ namespace WatchingTVSample
 	[TVTransition(From = TVStatus.On,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "TVStateChange")]
 	public class TVState : State<TVStatus, TVEvent, int>
 	{
-		// The call to (protected) Build() is necessary to build the internal state/transition graph:
+		// The call to Build() is necessary to build the internal state/transition graph:
 		public TVState() { Build(); }
 
 		// This method is called during each allowed transition (BEFORE the state change),
