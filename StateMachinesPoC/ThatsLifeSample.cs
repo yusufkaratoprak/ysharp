@@ -20,7 +20,7 @@ namespace ThatsLifeSample
 	// "With" is the name of the method (possibly fully qualified type + member name)
 	// executed during state transitions as they occur
 	// On the types:
-	// "From" is of the type of status values' type (LifeStatus in this example)
+	// "From" is of the type of state values' type (Status in this example)
 	// "When" is of the type of trigger/signal, can be a custom enum as well, but here we default to string
 	// "Goto" is of the same type as "From"
 	// "With" is string
@@ -42,10 +42,10 @@ namespace ThatsLifeSample
 	[LifeTransition(From = LifeStatus.Employed,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
 	[LifeTransition(From = LifeStatus.Employed,		When = "Retirement",	Goto = LifeStatus.Retired,		With = "StatusChange")]
 	[LifeTransition(From = LifeStatus.Retired,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
-	public class Individual : State<LifeStatus>
+	public class Human : State<LifeStatus>
 	{
 		// The call to Build() is necessary to build the internal state/transition graph:
-		public Individual() { Build(); }
+		public Human() { Build(); }
 
 		public static void StatusChange(IState<LifeStatus> state, LifeStatus from, string trigger, LifeStatus to, object args)
 		{
@@ -54,16 +54,16 @@ namespace ThatsLifeSample
 	}
 
 	// We also define a signal source of triggers/signals, an IObservable<string> here:
-	public class Life : SignalSource { }
+	public class PersonLife : SignalSource { }
 
 	// Finally, the state machine proper, compatible with the above:
-	public class Person : Machine<Individual, LifeStatus> { }
+	public class Person : Machine<Human, LifeStatus> { }
 
 	public static class Example
 	{
 		public static void Run()
 		{
-			var JohnsLife = new Life();
+			var JohnsLife = new PersonLife();
 			var John = new Person().Using(JohnsLife).Start();
 			Console.WriteLine("Simulation 0:");
 			// We use the signal source that the start state (and others) of the state machine
