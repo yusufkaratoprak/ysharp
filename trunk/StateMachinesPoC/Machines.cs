@@ -263,7 +263,7 @@ namespace Machines
 			return null;
 		}
 
-		public void Reset()
+		public virtual void Reset()
 		{
 			Using();
 		}
