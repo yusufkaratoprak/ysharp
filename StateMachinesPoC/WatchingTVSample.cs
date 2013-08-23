@@ -6,7 +6,7 @@ using System.Text;
 
 using Machines;
 
-namespace WatchingTVSample
+namespace WatchingTV
 {
 	// The TV state transition trigger/signal type:
 	public enum TVEvent
@@ -38,22 +38,19 @@ namespace WatchingTVSample
 	}
 
 	// The TV state proper:
-	[TVTransition(From = TVStatus.Unplugged,	When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "TVStateChange")]
-	[TVTransition(From = TVStatus.Off,			When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "TVStateChange")]
-	[TVTransition(From = TVStatus.On,			When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "TVStateChange")]
-	[TVTransition(From = TVStatus.Unplugged,	When = TVEvent.Plug,		Goto = TVStatus.Off,		With = "TVStateChange")]
-	[TVTransition(From = TVStatus.Off,			When = TVEvent.SwitchOn,	Goto = TVStatus.On,			With = "TVStateChange")]
-	[TVTransition(From = TVStatus.Off,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "TVStateChange")]
-	[TVTransition(From = TVStatus.On,			When = TVEvent.SwitchOff,	Goto = TVStatus.Off,		With = "TVStateChange")]
-	[TVTransition(From = TVStatus.On,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "TVStateChange")]
+	[TVTransition(From = TVStatus.Unplugged,	When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "StateChange")]
+	[TVTransition(From = TVStatus.Off,			When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "StateChange")]
+	[TVTransition(From = TVStatus.On,			When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "StateChange")]
+	[TVTransition(From = TVStatus.Unplugged,	When = TVEvent.Plug,		Goto = TVStatus.Off,		With = "StateChange")]
+	[TVTransition(From = TVStatus.Off,			When = TVEvent.SwitchOn,	Goto = TVStatus.On,			With = "StateChange")]
+	[TVTransition(From = TVStatus.Off,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "StateChange")]
+	[TVTransition(From = TVStatus.On,			When = TVEvent.SwitchOff,	Goto = TVStatus.Off,		With = "StateChange")]
+	[TVTransition(From = TVStatus.On,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "StateChange")]
 	public class TVState : State<TVStatus, TVEvent, int>
 	{
-		// The call to Build() is necessary to build the internal state/transition graph:
-		public TVState() { Build(); }
-
 		// This method is called during each allowed transition (BEFORE the state change),
 		// and whether or not the from/to states are distinct (sometimes a transition just loops over the same state):
-		public static void TVStateChange(IState<TVStatus> state, TVStatus from, TVEvent trigger, TVStatus to, int args)
+		public static void StateChange(IState<TVStatus> state, TVStatus from, TVEvent trigger, TVStatus to, int args)
 		{
 			Console.WriteLine("\t\t\tFrom: {0} --- (trigger: {1}({2})) --> To: {3}", from, trigger, args, to);
 		}
@@ -106,7 +103,7 @@ namespace WatchingTVSample
 			// which is the source of triggers for state transitions:
 			Console.WriteLine("Simulation 2:");
 			foreach (TVStatus value in state.Using(SampleSimulation2).Start(TVStatus.Unplugged))
-				// Just echo the state that we transitioned TO on the console:
+				// Just echo on the console the state that we transitioned TO:
 				Console.WriteLine("\t{0}", value);
 
 			// Anti-pattern:
