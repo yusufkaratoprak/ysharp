@@ -28,7 +28,7 @@ namespace WatchingTVAdvanced
 		public TVState(string name) : this(true) { Name = name; Value = this; }
 		public TVState(bool constant)
 		{
-            if (!constant)
+			if (!constant)
 			{
 				var transitions = new[]
 				{
@@ -41,7 +41,7 @@ namespace WatchingTVAdvanced
 					new { From = On,			When = TVEvent.SwitchOff,	Goto = Off,			With = "WatchingTVAdvanced.Television.StateChange" },
 					new { From = On,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVAdvanced.Television.StateChange" }
 				};
-                Build(transitions, null);
+				Build(transitions, null);
 			}
 		}
 
@@ -60,15 +60,15 @@ namespace WatchingTVAdvanced
 
 	public static class Example
 	{
-        public static IEnumerable<TVEvent> Signals
-        {
-            get
-            {
-                yield return TVEvent.Plug;
-                yield return TVEvent.SwitchOn;
-                yield return TVEvent.Destroy;
-            }
-        }
+		public static IEnumerable<TVEvent> Signals
+		{
+			get
+			{
+				yield return TVEvent.Plug;
+				yield return TVEvent.SwitchOn;
+				yield return TVEvent.Destroy;
+			}
+		}
 
 		public static void Run()
 		{

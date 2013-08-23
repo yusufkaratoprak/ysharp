@@ -38,14 +38,14 @@ namespace WatchingTV
 	}
 
 	// The TV state proper:
-	[TVTransition(From = TVStatus.Unplugged,	When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "StateChange")]
-	[TVTransition(From = TVStatus.Off,			When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "StateChange")]
-	[TVTransition(From = TVStatus.On,			When = TVEvent.Destroy,		Goto = TVStatus.Disposed,	With = "StateChange")]
-	[TVTransition(From = TVStatus.Unplugged,	When = TVEvent.Plug,		Goto = TVStatus.Off,		With = "StateChange")]
-	[TVTransition(From = TVStatus.Off,			When = TVEvent.SwitchOn,	Goto = TVStatus.On,			With = "StateChange")]
-	[TVTransition(From = TVStatus.Off,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "StateChange")]
-	[TVTransition(From = TVStatus.On,			When = TVEvent.SwitchOff,	Goto = TVStatus.Off,		With = "StateChange")]
-	[TVTransition(From = TVStatus.On,			When = TVEvent.Unplug,		Goto = TVStatus.Unplugged,	With = "StateChange")]
+	[TVTransition(From = TVStatus.Unplugged, When = TVEvent.Destroy, Goto = TVStatus.Disposed, With = "StateChange")]
+	[TVTransition(From = TVStatus.Off, When = TVEvent.Destroy, Goto = TVStatus.Disposed, With = "StateChange")]
+	[TVTransition(From = TVStatus.On, When = TVEvent.Destroy, Goto = TVStatus.Disposed, With = "StateChange")]
+	[TVTransition(From = TVStatus.Unplugged, When = TVEvent.Plug, Goto = TVStatus.Off, With = "StateChange")]
+	[TVTransition(From = TVStatus.Off, When = TVEvent.SwitchOn, Goto = TVStatus.On, With = "StateChange")]
+	[TVTransition(From = TVStatus.Off, When = TVEvent.Unplug, Goto = TVStatus.Unplugged, With = "StateChange")]
+	[TVTransition(From = TVStatus.On, When = TVEvent.SwitchOff, Goto = TVStatus.Off, With = "StateChange")]
+	[TVTransition(From = TVStatus.On, When = TVEvent.Unplug, Goto = TVStatus.Unplugged, With = "StateChange")]
 	public class TVState : State<TVStatus, TVEvent, int>
 	{
 		// This method is called during each allowed transition (BEFORE the state change),
