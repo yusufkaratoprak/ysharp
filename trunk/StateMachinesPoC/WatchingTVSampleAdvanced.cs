@@ -6,7 +6,7 @@ using System.Text;
 
 using Machines;
 
-namespace WatchingTVSampleAdvanced
+namespace WatchingTVAdvanced
 {
 	public enum TVEvent
 	{
@@ -24,24 +24,24 @@ namespace WatchingTVSampleAdvanced
 		public static readonly TVState On = new TVState("turned on");
 		public static readonly TVState Disposed = new TVState("disposed");
 
-		public TVState() : this(true) { }
-		public TVState(string name) : this(false) { Name = name; Value = this; }
-		public TVState(bool define)
+		public TVState() : this(false) { }
+		public TVState(string name) : this(true) { Name = name; Value = this; }
+		public TVState(bool constant)
 		{
-			if (define)
+            if (!constant)
 			{
-				var definition = new[]
+				var transitions = new[]
 				{
-					new { From = Unplugged,		When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = Off,			When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = On,			When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = Unplugged,		When = TVEvent.Plug,		Goto = Off,			With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = Off,			When = TVEvent.SwitchOn,	Goto = On,			With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = Off,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = On,			When = TVEvent.SwitchOff,	Goto = Off,			With = "WatchingTVSampleAdvanced.Television.StateChange" },
-					new { From = On,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVSampleAdvanced.Television.StateChange" }
+					new { From = Unplugged,		When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = Off,			When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = On,			When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = Unplugged,		When = TVEvent.Plug,		Goto = Off,			With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = Off,			When = TVEvent.SwitchOn,	Goto = On,			With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = Off,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = On,			When = TVEvent.SwitchOff,	Goto = Off,			With = "WatchingTVAdvanced.Television.StateChange" },
+					new { From = On,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVAdvanced.Television.StateChange" }
 				};
-				Build(definition, null);
+                Build(transitions, null);
 			}
 		}
 
@@ -60,6 +60,16 @@ namespace WatchingTVSampleAdvanced
 
 	public static class Example
 	{
+        public static IEnumerable<TVEvent> Signals
+        {
+            get
+            {
+                yield return TVEvent.Plug;
+                yield return TVEvent.SwitchOn;
+                yield return TVEvent.Destroy;
+            }
+        }
+
 		public static void Run()
 		{
 			ISignalling<TVEvent, DateTime> remote = new TVRemote();
@@ -76,7 +86,7 @@ namespace WatchingTVSampleAdvanced
 						(TVState)new Television().Using(remote).Start(TVState.Unplugged)
 					)
 				}
-				from signal in new[] { TVEvent.Plug, TVEvent.SwitchOn, TVEvent.Destroy }
+				from signal in Signals
 				let action = remote.Emit(signal, DateTime.Now)
 				select state
 			).ToArray();

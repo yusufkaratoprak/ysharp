@@ -6,10 +6,10 @@ using System.Text;
 
 using Machines;
 
-namespace ThatsLifeSample
+namespace ThatsLife
 {
 	// First we define the meaningful set of values for life status:
-	public enum LifeStatus { Unborn, Child, Unemployed, Employed, Retired, Dead }
+    public enum LifeStatus { Unborn, Child, Unemployed, Employed, Retired, Dead }
 
 	// Next we define a metadata attribute to decorate a descendant of State<...>
 	// with the only allowed state transitions;
@@ -33,37 +33,34 @@ namespace ThatsLifeSample
 	}
 
 	// Next we define the state type proper:
-	[LifeTransition(From = LifeStatus.Unborn,		When = "Birth",			Goto = LifeStatus.Child,		With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Unborn,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Child,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Child,		When = "Graduation",	Goto = LifeStatus.Unemployed,	With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Unemployed,	When = "Employment",	Goto = LifeStatus.Employed,		With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Unemployed,	When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Employed,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Employed,		When = "Retirement",	Goto = LifeStatus.Retired,		With = "StatusChange")]
-	[LifeTransition(From = LifeStatus.Retired,		When = "Death",			Goto = LifeStatus.Dead,			With = "StatusChange")]
-	public class Human : State<LifeStatus>
+	[LifeTransition(From = LifeStatus.Unborn,       When = "Birth",         Goto = LifeStatus.Child,        With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Unborn,       When = "Death",         Goto = LifeStatus.Dead,         With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Child,        When = "Death",         Goto = LifeStatus.Dead,         With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Child,        When = "Graduation",    Goto = LifeStatus.Unemployed,   With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Unemployed,   When = "Employment",    Goto = LifeStatus.Employed,     With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Unemployed,   When = "Death",         Goto = LifeStatus.Dead,         With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Employed,     When = "Death",         Goto = LifeStatus.Dead,         With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Employed,     When = "Retirement",    Goto = LifeStatus.Retired,      With = "StateChange")]
+	[LifeTransition(From = LifeStatus.Retired,      When = "Death",         Goto = LifeStatus.Dead,         With = "StateChange")]
+	public class Mankind : State<LifeStatus>
 	{
-		// The call to Build() is necessary to build the internal state/transition graph:
-		public Human() { Build(); }
-
-		public static void StatusChange(IState<LifeStatus> state, LifeStatus from, string trigger, LifeStatus to, object args)
+		public static void StateChange(IState<LifeStatus> state, LifeStatus from, string trigger, LifeStatus to, object args)
 		{
 			Console.WriteLine("\t\t\tFrom: {0} --- (trigger: {1}) --> To: {2}", from, trigger, to);
 		}
 	}
 
 	// We also define a signal source of triggers/signals, an IObservable<string> here:
-	public class PersonLife : SignalSource { }
+    public class Life : SignalSource { }
 
 	// Finally, the state machine proper, compatible with the above:
-	public class Person : Machine<Human, LifeStatus> { }
+    public class Person : Machine<Mankind, LifeStatus> { }
 
 	public static class Example
 	{
 		public static void Run()
 		{
-			var JohnsLife = new PersonLife();
+            var JohnsLife = new Life();
 			var John = new Person().Using(JohnsLife).Start();
 			Console.WriteLine("Simulation 0:");
 			// We use the signal source that the start state (and others) of the state machine
