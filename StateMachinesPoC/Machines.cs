@@ -120,23 +120,23 @@ namespace Machines
 			return new Transition<TValue, Trigger, TArgs> { From = source, When = trigger, Goto = target, With = handler };
 		}
 
-        private void TryHandleError(Exception error)
-        {
-            bool? handled = OnError(error);
-            if (handled.HasValue && !handled.Value)
-                Dispose();
-        }
+		private void TryHandleError(Exception error)
+		{
+			bool? handled = OnError(error);
+			if (handled.HasValue && !handled.Value)
+				Dispose();
+		}
 
-        protected State() { Build(); }
+		protected State() { Build(); }
 
-        protected void Attach(object context)
+		protected void Attach(object context)
 		{
 			if (context != null)
 			{
 				Observe(null);
 				Link(context);
-                Context = context;
-            }
+				Context = context;
+			}
 		}
 
 		protected virtual void Link(object context)
@@ -145,16 +145,16 @@ namespace Machines
 				Observe(((IObservable<Trigger>)context).Subscribe(this));
 			else if (context is IObservable<Tuple<Trigger, TArgs>>)
 				Observe(((IObservable<Tuple<Trigger, TArgs>>)context).Subscribe(this));
-        }
+		}
 
 		protected virtual bool Unlink(object context)
 		{
 			bool isDone = true;
 			if (context is ISignalSource<Trigger>)
-                isDone = ((ISignalSource<Trigger>)context).IsDone(this);
+				isDone = ((ISignalSource<Trigger>)context).IsDone(this);
 			else if (context is ISignalSource<Tuple<Trigger, TArgs>>)
-                isDone = ((ISignalSource<Tuple<Trigger, TArgs>>)context).IsDone(this);
-            return isDone;
+				isDone = ((ISignalSource<Tuple<Trigger, TArgs>>)context).IsDone(this);
+			return isDone;
 		}
 
 		protected void Detach()
@@ -179,11 +179,11 @@ namespace Machines
 			if (source == null)
 			{
 				Context = source;
-                if ((current != null) && reattach)
-                {
-                    if (Unlink(current) && (current is IDisposable))
-                        ((IDisposable)current).Dispose();
-                }
+				if ((current != null) && reattach)
+				{
+					if (Unlink(current) && (current is IDisposable))
+						((IDisposable)current).Dispose();
+				}
 				Input = null;
 			}
 			else
@@ -207,32 +207,32 @@ namespace Machines
 
 		protected IState<TValue> Build(IEnumerable transitions, object context, bool ignoreAttributes)
 		{
-            if ((Edges == null) || (Edges.Count <= 0))
-            {
-                var edges = new Dictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>>();
-                if (!ignoreAttributes)
-                {
-                    var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), true);
-                    foreach (TransitionAttribute attribute in attributes)
-                    {
-                        var transition = ParseTransition(attribute);
-                        AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
-                    }
-                }
-                if (transitions != null)
-                {
-                    foreach (var untyped in transitions)
-                    {
-                        if (untyped != null)
-                        {
-                            var transition = ParseTransition(untyped);
-                            AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
-                        }
-                    }
-                }
-                Edges = edges;
-            }
-            Attach(context);
+			if ((Edges == null) || (Edges.Count <= 0))
+			{
+				var edges = new Dictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>>();
+				if (!ignoreAttributes)
+				{
+					var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), true);
+					foreach (TransitionAttribute attribute in attributes)
+					{
+						var transition = ParseTransition(attribute);
+						AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
+					}
+				}
+				if (transitions != null)
+				{
+					foreach (var untyped in transitions)
+					{
+						if (untyped != null)
+						{
+							var transition = ParseTransition(untyped);
+							AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
+						}
+					}
+				}
+				Edges = edges;
+			}
+			Attach(context);
 			return this;
 		}
 
@@ -462,13 +462,13 @@ namespace Machines
 
 		void IObserver<Trigger>.OnError(Exception error)
 		{
-            TryHandleError(error);
+			TryHandleError(error);
 		}
 
 		void IObserver<Tuple<Trigger, TArgs>>.OnError(Exception error)
 		{
-            TryHandleError(error);
-        }
+			TryHandleError(error);
+		}
 
 		void IObserver<Trigger>.OnNext(Trigger value)
 		{
@@ -634,7 +634,7 @@ namespace Machines
 			return (TSubject)subject;
 		}
 
-        protected IDisposable Acknowledge(IObserver<TSignal> observer, bool subscribe)
+		protected IDisposable Acknowledge(IObserver<TSignal> observer, bool subscribe)
 		{
 			IDisposable consumer = null;
 			if (observer != null)
@@ -691,7 +691,7 @@ namespace Machines
 			}
 			else
 				observer.OnCompleted();
-            return (Acknowledge(observer, false) == null);
+			return (Acknowledge(observer, false) == null);
 		}
 	}
 }
