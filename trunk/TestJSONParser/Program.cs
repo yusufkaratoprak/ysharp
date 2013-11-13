@@ -21,7 +21,7 @@ namespace TestJSONParser
             var parser = new JSONParser();
             Console.WriteLine("\tParsed by {0} in...", parser.GetType().FullName);
             DateTime start = DateTime.Now;
-            object obj = parser.Parse(System.IO.File.ReadAllText(SMALL_TEST_FILE_PATH));
+            object obj = parser.Parse(small);
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
             Console.WriteLine();
 
