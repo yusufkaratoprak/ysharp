@@ -62,7 +62,7 @@ namespace System.Text
         {
             int len = text.Length;
             Func<object> val = null;
-            object obj = null;
+            object value = null;
             bool data = true;
             char ch = ' ';
             int at = 0;
@@ -231,7 +231,7 @@ namespace System.Text
                 }
                 throw error("Bad array");
             };
-            Func<object> hash = delegate()
+            Func<object> obj = delegate()
             {
                 IDictionary<string, object> o = new Dictionary<string, object>();
                 string key;
@@ -270,7 +270,7 @@ namespace System.Text
                 switch (ch)
                 {
                     case '{':
-                        return hash();
+                        return obj();
                     case '[':
                         return list();
                     case '"':
@@ -281,11 +281,11 @@ namespace System.Text
                         return ((ch >= '0') && (ch <= '9') ? num() : word());
                 }
             };
-            obj = val();
+            value = val();
             space();
             if (data)
                 throw error("Syntax error");
-            return obj;
+            return value;
         }
     }
 }
