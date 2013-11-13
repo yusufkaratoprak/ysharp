@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace NetUtils.Helpers
+namespace System.Text
 {
 	public static class JSONParser
 	{

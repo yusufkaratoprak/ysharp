@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -28,9 +29,9 @@ namespace TestJSONParser
 			Console.WriteLine("... {0} ms", (int)DateTime.Now.Subtract(st).TotalMilliseconds);
 			Console.WriteLine();
 
-			Console.WriteLine("Parsed by {0} in...", typeof(NetUtils.Helpers.JSONParser).FullName);
+			Console.WriteLine("Parsed by {0} in...", typeof(System.Text.JSONParser).FullName);
 			DateTime start = DateTime.Now;
-			object myObj = NetUtils.Helpers.JSONParser.Parse(json);
+			object myObj = System.Text.JSONParser.Parse(json);
 			Console.WriteLine();
 			Console.WriteLine("... {0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
 			Console.WriteLine();
@@ -39,7 +40,7 @@ namespace TestJSONParser
 			// Works also: var parsed = msObj; for the object returned by Microsoft's JS serializer
 			var parsed = ((Console.ReadKey().KeyChar == '1') ? myObj : msObj);
 
-			object[] items = (object[])((IDictionary<string, object>)parsed)["fathers"];
+			object[] items = (object[])((Dictionary<string, object>)parsed)["fathers"];
 			Console.WriteLine();
 			Console.WriteLine("Found : {0} fathers", items.Length);
 			Console.WriteLine("Press a key to list them...");
@@ -47,7 +48,7 @@ namespace TestJSONParser
 			Console.ReadKey();
 			foreach (object item in items)
 			{
-				var father = (IDictionary<string, object>)item;
+				var father = (Dictionary<string, object>)item;
 				var name = (string)father["name"];
 				var sons = (object[])father["sons"];
 				var daughters = (object[])father["daughters"];
