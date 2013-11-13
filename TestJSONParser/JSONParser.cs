@@ -25,7 +25,7 @@ namespace System.Text
             /// <summary>
             /// Converts the specified JSON string to the .NET equivalent of a JSON "value"
             /// (as defined by http://json.org/). This can be, either:
-            /// null, or true/false, or a System.Double, or a System.String, or an object[], or an IDictionary(string => object)
+            /// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object)
             /// </summary>
             /// <param name="text">The JSON string to parse.</param>
             /// <returns>The deserialized object.</returns>
