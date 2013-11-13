@@ -60,8 +60,7 @@ namespace System.Text
         /// <returns>The deserialized object.</returns>
         public object Parse(string text)
         {
-            char[] txt = text.ToCharArray();
-            int len = txt.Length;
+            int len = text.Length;
             Func<object> val = null;
             object obj = null;
             bool data = true;
@@ -71,13 +70,24 @@ namespace System.Text
             {
                 return new Exception(String.Format("{0} at index {1}", message, at));
             };
-            Func<char?, bool> next = delegate(char? c)
+            Func<bool> cont = delegate()
             {
-                if (c.HasValue && (c.Value != ch))
-                    throw error(String.Format("Expected '{0}' instead of '{1}'", c.Value, ch));
                 if (at < len)
                 {
-                    ch = txt[at];
+                    ch = text[at];
+                    at += 1;
+                }
+                else
+                    data = false;
+                return data;
+            };
+            Func<char, bool> next = delegate(char c)
+            {
+                if (c != ch)
+                    throw error(String.Format("Expected '{0}' instead of '{1}'", c, ch));
+                if (at < len)
+                {
+                    ch = text[at];
                     at += 1;
                 }
                 else
@@ -95,27 +105,27 @@ namespace System.Text
                 while ((ch >= '0') && (ch <= '9'))
                 {
                     cs.Append(ch);
-                    next(null);
+                    cont();
                 }
                 if (ch == '.')
                 {
                     cs.Append('.');
-                    while (next(null) && (ch >= '0') && (ch <= '9'))
+                    while (cont() && (ch >= '0') && (ch <= '9'))
                         cs.Append(ch);
                 }
                 if ((ch == 'e') || (ch == 'E'))
                 {
                     cs.Append(ch);
-                    next(null);
+                    cont();
                     if ((ch == '-') || (ch == '+'))
                     {
                         cs.Append(ch);
-                        next(null);
+                        cont();
                     }
                     while ((ch >= '0') && (ch <= '9'))
                     {
                         cs.Append(ch);
-                        next(null);
+                        cont();
                     }
                 }
                 return double.Parse(cs.ToString());
@@ -126,22 +136,22 @@ namespace System.Text
                 cs.Length = 0;
                 if (ch == '"')
                 {
-                    while (next(null))
+                    while (cont())
                     {
                         if (ch == '"')
                         {
-                            next(null);
+                            cont();
                             return cs.ToString();
                         }
                         if (ch == '\\')
                         {
-                            next(null);
+                            cont();
                             if (ch == 'u')
                             {
                                 uffff = 0;
                                 for (i = 0; i < 4; i += 1)
                                 {
-                                    hex = Convert.ToInt32(string.Empty + next(null), 16);
+                                    hex = Convert.ToInt32(string.Empty + cont(), 16);
                                     uffff = uffff * 16 + hex;
                                 }
                                 cs.Append(Convert.ToChar(uffff));
@@ -160,7 +170,7 @@ namespace System.Text
             Action space = delegate()
             {
                 while (data && (ch <= ' '))
-                    next(null);
+                    cont();
             };
             Func<object> word = delegate()
             {
@@ -221,7 +231,7 @@ namespace System.Text
                 }
                 throw error("Bad array");
             };
-            Func<Object> hash = delegate()
+            Func<object> hash = delegate()
             {
                 IDictionary<string, object> o = new Dictionary<string, object>();
                 string key;
@@ -268,7 +278,7 @@ namespace System.Text
                     case '-':
                         return num();
                     default:
-                        return ((ch >= '0') && (ch <= '9')  ?    num() : word());
+                        return ((ch >= '0') && (ch <= '9') ? num() : word());
                 }
             };
             obj = val();
