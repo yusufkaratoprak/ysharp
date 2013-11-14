@@ -37,26 +37,25 @@ namespace System.Text.Notations
 
             public static T ParseJSON<T>(this T prototype, string text)
             {
-                return new Parser().Parse(text, prototype);
+                return new JSONParser().Parse(text, prototype);
             }
 
             public static T ParseJSON<T>(this T prototype, System.IO.Stream stream)
             {
-                return new Parser().Parse(stream, prototype);
+                return new JSONParser().Parse(stream, prototype);
             }
 
             public static T ParseJSON<T>(this T prototype, System.IO.StreamReader reader)
             {
-                return new Parser().Parse(reader, prototype);
+                return new JSONParser().Parse(reader, prototype);
             }
         }
 
-        public class Parser
+        public class JSONParser
         {
             private static readonly IDictionary<char, char> ESC = new Dictionary<char, char>();
-            private StringBuilder cs = new StringBuilder();
 
-            static Parser()
+            static JSONParser()
             {
                 ESC['"'] = '"';
                 ESC['\\'] = '\\';
@@ -186,40 +185,27 @@ namespace System.Text.Notations
 
             private object DoParse(object source, /*(provision...)*/Type type)
             {
+                Func<string, int, Exception> error = (message, index) => new Exception(String.Format("{0} at index {1}", message, index));
                 System.IO.StreamReader sr = (source as System.IO.StreamReader);
+                StringBuilder cs = new StringBuilder();
                 string text = (source as string);
                 int len = (text ?? String.Empty).Length;
                 char[] wc = new char[1];
                 int at = 0;
-                Func<bool> atEndOfStream = delegate()
-                {
-                    return sr.EndOfStream;
-                };
+                Func<bool> atEndOfStream = () => sr.EndOfStream;
+                Func<bool> atEndOfText = () => (at >= len);
                 Func<char> readFromStream = delegate()
                 {
                     sr.Read(wc, 0, 1);
                     return wc[0];
                 };
-                Func<bool> atEndOfText = delegate()
-                {
-                    return (at >= len);
-                };
-                Func<char> readFromText = delegate()
-                {
-                    return text[at++];
-                };
-                Func<object> val = null;
-                Func<bool> atEnd = null;
-                Func<char> read = null;
+                Func<char> readFromText = () => text[at++];
+                Func<bool> atEnd = ((sr != null) ? atEndOfStream : atEndOfText);
+                Func<char> read = ((sr != null) ? readFromStream : readFromText);
+                Func<object> parse = null;
                 object value = null;
                 bool data = true;
                 char ch = ' ';
-                Func<string, Exception> error = delegate(string message)
-                {
-                    return new Exception(String.Format("{0} at index {1}", message, at));
-                };
-                atEnd = ((sr != null) ? atEndOfStream : atEndOfText);
-                read = ((sr != null) ? readFromStream : readFromText);
                 Func<bool> cont = delegate()
                 {
                     if (!atEnd())
@@ -231,7 +217,7 @@ namespace System.Text.Notations
                 Func<char, bool> next = delegate(char c)
                 {
                     if (c != ch)
-                        throw error(String.Format("Expected '{0}' instead of '{1}'", c, ch));
+                        throw error(String.Format("Expected '{0}' instead of '{1}'", c, ch), at);
                     if (!atEnd())
                         ch = read();
                     else
@@ -344,7 +330,7 @@ namespace System.Text.Notations
                                 cs.Append(ch);
                         }
                     }
-                    throw error("Bad string");
+                    throw error("Bad string", at);
                 };
                 Action space = delegate()
                 {
@@ -375,7 +361,7 @@ namespace System.Text.Notations
                             next('l');
                             return null;
                     }
-                    throw error(String.Format("Unexpected '{0}'", ch));
+                    throw error(String.Format("Unexpected '{0}'", ch), at);
                 };
                 Func<IList<object>> list = delegate()
                 {
@@ -391,7 +377,7 @@ namespace System.Text.Notations
                         }
                         while (data)
                         {
-                            l.Add(val());
+                            l.Add(parse());
                             space();
                             if (ch == ']')
                             {
@@ -402,7 +388,7 @@ namespace System.Text.Notations
                             space();
                         }
                     }
-                    throw error("Bad array");
+                    throw error("Bad array", at);
                 };
                 Func<object> obj = delegate()
                 {
@@ -423,8 +409,8 @@ namespace System.Text.Notations
                             space();
                             next(':');
                             if (o.ContainsKey(key))
-                                throw error(String.Format("Duplicate key \"{0}\"", key));
-                            o[key] = val();
+                                throw error(String.Format("Duplicate key \"{0}\"", key), at);
+                            o[key] = parse();
                             space();
                             if (ch == '}')
                             {
@@ -435,9 +421,9 @@ namespace System.Text.Notations
                             space();
                         }
                     }
-                    throw error("Bad object");
+                    throw error("Bad object", at);
                 };
-                val = delegate()
+                parse = delegate()
                 {
                     space();
                     switch (ch)
@@ -454,10 +440,10 @@ namespace System.Text.Notations
                             return ((ch >= '0') && (ch <= '9') ? num() : word());
                     }
                 };
-                value = val();
+                value = parse();
                 space();
                 if (data)
-                    throw error("Syntax error");
+                    throw error("Syntax error", at);
                 return value;
             }
         }
