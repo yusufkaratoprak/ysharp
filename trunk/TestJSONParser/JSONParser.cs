@@ -188,10 +188,12 @@ namespace System.Text.Notations
                 Func<string, int, Exception> error = (message, index) => new Exception(String.Format("{0} at index {1}", message, index));
                 System.IO.StreamReader sr = (source as System.IO.StreamReader);
                 StringBuilder cs = new StringBuilder();
+                Hashtable rtti = new Hashtable();
                 string text = (source as string);
                 int len = (text ?? String.Empty).Length;
                 char[] wc = new char[1];
                 int at = 0;
+                type = (type ?? typeof(object));
                 Func<bool> atEndOfStream = () => sr.EndOfStream;
                 Func<bool> atEndOfText = () => (at >= len);
                 Func<char> readFromStream = delegate()
@@ -202,10 +204,32 @@ namespace System.Text.Notations
                 Func<char> readFromText = () => text[at++];
                 Func<bool> atEnd = ((sr != null) ? atEndOfStream : atEndOfText);
                 Func<char> read = ((sr != null) ? readFromStream : readFromText);
-                Func<object> parse = null;
+                Func<Type, object> parse = null;
                 object value = null;
                 bool data = true;
                 char ch = ' ';
+                Func<Type, Hashtable, string, bool, Type> ensure = delegate(Type tt, Hashtable tm, string pn, bool anon)
+                {
+                    if (tt != typeof(object))
+                    {
+                        var tp = tt.GetProperty(pn);
+                        if ((tp != null) && (tp.CanWrite || anon))
+                            if (!tm.ContainsKey(pn))
+                                return (Type)(tm[tp] = tt.GetProperty(pn).PropertyType);
+                            else
+                                return (Type)tm[tp];
+                        else
+                            return null;
+                    }
+                    return null;
+                };
+                Func<Type, Hashtable> target = delegate(Type rt)
+                {
+                    if (rt != typeof(object))
+                        return (Hashtable)(!rtti.ContainsKey(rt) ? (rtti[rt] = new Hashtable()) : rtti[rt]);
+                    else
+                        return null;
+                };
                 Func<bool> cont = delegate()
                 {
                     if (!atEnd())
@@ -363,7 +387,7 @@ namespace System.Text.Notations
                     }
                     throw error(String.Format("Unexpected '{0}'", ch), at);
                 };
-                Func<IList<object>> list = delegate()
+                Func<Type, IEnumerable> list = delegate(Type t)
                 {
                     IList<object> l = new List<object>();
                     if (ch == '[')
@@ -377,7 +401,7 @@ namespace System.Text.Notations
                         }
                         while (data)
                         {
-                            l.Add(parse());
+                            l.Add(parse(typeof(object)));
                             space();
                             if (ch == ']')
                             {
@@ -390,32 +414,58 @@ namespace System.Text.Notations
                     }
                     throw error("Bad array", at);
                 };
-                Func<object> obj = delegate()
+                Func<Type, object> obj = delegate(Type t)
                 {
-                    IDictionary<string, object> o = new Dictionary<string, object>();
+                    var anon = (t.Name.StartsWith("<>") ? new List<object>() : null);
+                    var actr = ((anon != null) ? t.GetConstructors()[0].GetParameters() : null);
                     string key;
+                    object o;
                     if (ch == '{')
                     {
+                        var d = new Dictionary<string, object>();
+                        if (t != typeof(object) && (anon == null))
+                        {
+                            var ctor = t.GetConstructors().OrderBy(c => c.GetParameters().Length).First();
+                            var carg = ctor.GetParameters();
+                            o = Activator.CreateInstance(t, new object[carg.Length]);
+                        }
+                        else
+                            o = d;
+                        Hashtable ti = target(t);
                         next('{');
                         space();
                         if (ch == '}')
                         {
                             next('}');
-                            return o;
+                            return ((anon != null) ? Activator.CreateInstance(t, anon.ToArray()) : o);
                         }
                         while (data)
                         {
                             key = String.Intern(str());
+                            Type nt;
                             space();
                             next(':');
-                            if (o.ContainsKey(key))
-                                throw error(String.Format("Duplicate key \"{0}\"", key), at);
-                            o[key] = parse();
+                            if ((nt = ensure(t, ti, key, (anon != null))) == null)
+                            {
+                                if (d.ContainsKey(key))
+                                    throw error(String.Format("Duplicate key \"{0}\"", key), at);
+                                d[key] = parse(typeof(object));
+                            }
+                            else
+                            {
+                                if (anon != null)
+                                {
+                                    if ((from arg in actr where arg.Name == key select arg).Count() > 0)
+                                        anon.Add(parse(nt));
+                                }
+                                else
+                                    t.GetProperty(key).SetValue(o, parse(nt), null);
+                            }
                             space();
                             if (ch == '}')
                             {
                                 next('}');
-                                return o;
+                                return ((anon != null) ? Activator.CreateInstance(t, anon.ToArray()) : o);
                             }
                             next(',');
                             space();
@@ -423,15 +473,15 @@ namespace System.Text.Notations
                     }
                     throw error("Bad object", at);
                 };
-                parse = delegate()
+                parse = delegate(Type t)
                 {
                     space();
                     switch (ch)
                     {
                         case '{':
-                            return obj();
+                            return obj(t);
                         case '[':
-                            return list();
+                            return list(t);
                         case '"':
                             return str();
                         case '-':
@@ -440,7 +490,7 @@ namespace System.Text.Notations
                             return ((ch >= '0') && (ch <= '9') ? num() : word());
                     }
                 };
-                value = parse();
+                value = parse(type ?? typeof(object));
                 space();
                 if (data)
                     throw error("Syntax error", at);
