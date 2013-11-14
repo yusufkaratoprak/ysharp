@@ -1,3 +1,4 @@
+//#define WITH_HUGE_TEST
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,10 +12,41 @@ namespace TestJSONParser
     {
         // Note: fathers.json.txt was generated using:
         // http://experiments.mennovanslooten.nl/2010/mockjson/tryit.html
-        const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt";
-        const string SMALL_TEST_FILE_PATH = @"..\..\small.json.txt";
+        // avg: file size ~ exec time (on Lenovo Win7 PC, i5, 2.50GHz, 6Gb)
+        const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 1.1sec
+        const string SMALL_TEST_FILE_PATH = @"..\..\small.json.txt"; // avg: 4kb ~ 15ms
+#if WITH_HUGE_TEST
+        const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
+#endif
+        static JSONParser jsonParser = new JSONParser();
 
-        static Parser jsonParser = new Parser();
+#if WITH_HUGE_TEST
+        static void HugeTest()
+        {
+            string json = System.IO.File.ReadAllText(HUGE_TEST_FILE_PATH);
+            object obj;
+            Console.WriteLine("Huge Test - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
+            Console.WriteLine();
+
+            var serializer = new System.Web.Script.Serialization.JavaScriptSerializer
+            {
+                MaxJsonLength = int.MaxValue
+            };
+            Console.WriteLine("\tParsed by {0} in...", serializer.GetType().FullName);
+            DateTime start1 = DateTime.Now;
+            obj = serializer.DeserializeObject(json);
+            Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start1).TotalMilliseconds);
+            Console.WriteLine();
+
+            Console.WriteLine("\tParsed by {0} in...", jsonParser.GetType().FullName);
+            DateTime start2 = DateTime.Now;
+            obj = jsonParser.Parse(json);
+            Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
+            Console.WriteLine("Press a key...");
+            Console.WriteLine();
+            Console.ReadKey();
+        }
+#endif
 
         static void Top10Youtube2013Test()
         {
@@ -47,11 +79,15 @@ namespace TestJSONParser
                 }
                 Console.WriteLine("Press a key...");
                 Console.WriteLine();
+                Console.ReadKey();
             }
         }
 
         static void Main(string[] args)
         {
+#if WITH_HUGE_TEST
+            HugeTest();
+#endif
             Top10Youtube2013Test();
 
             string small = System.IO.File.ReadAllText(SMALL_TEST_FILE_PATH);
