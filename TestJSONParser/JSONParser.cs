@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,23 +32,76 @@ namespace System.Text
 		/// <returns>The deserialized object.</returns>
 		public object Parse(string text)
 		{
-			int len = text.Length;
+			return DoParse((object)text);
+		}
+
+		/// <summary>
+		/// Converts the specified JSON text to the .NET equivalent of a JSON "value"
+		/// (as defined by http://json.org/). This can be, either:
+		/// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object)
+		/// </summary>
+		/// <param name="text">The JSON text to parse.</param>
+		/// <returns>The deserialized object.</returns>
+		public object Parse(System.IO.Stream stream)
+		{
+			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+			{
+				return Parse(reader);
+			}
+		}
+
+		/// <summary>
+		/// Converts the specified JSON text to the .NET equivalent of a JSON "value"
+		/// (as defined by http://json.org/). This can be, either:
+		/// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object)
+		/// </summary>
+		/// <param name="text">The JSON text to parse.</param>
+		/// <returns>The deserialized object.</returns>
+		public object Parse(System.IO.StreamReader reader)
+		{
+			return DoParse((object)reader);
+		}
+
+		private object DoParse(object source)
+		{
+			System.IO.StreamReader sr = (source as System.IO.StreamReader);
+			string text = (source as string);
+			int len = (text ?? String.Empty).Length;
+			char[] wc = new char[1];
+			int at = 0;
+			Func<bool> atEndOfStream = delegate()
+			{
+				return sr.EndOfStream;
+			};
+			Func<char> readFromStream = delegate()
+			{
+				sr.Read(wc, 0, 1);
+				return wc[0];
+			};
+			Func<bool> atEndOfText = delegate()
+			{
+				return (at >= len);
+			};
+			Func<char> readFromText = delegate()
+			{
+				return text[at++];
+			};
 			Func<object> val = null;
+			Func<bool> atEnd = null;
+			Func<char> read = null;
 			object value = null;
 			bool data = true;
 			char ch = ' ';
-			int at = 0;
 			Func<string, Exception> error = delegate(string message)
 			{
 				return new Exception(String.Format("{0} at index {1}", message, at));
 			};
+			atEnd = ((sr != null) ? atEndOfStream : atEndOfText);
+			read = ((sr != null) ? readFromStream : readFromText);
 			Func<bool> cont = delegate()
 			{
-				if (at < len)
-				{
-					ch = text[at];
-					at += 1;
-				}
+				if (!atEnd())
+					ch = read();
 				else
 					data = false;
 				return data;
@@ -56,11 +110,8 @@ namespace System.Text
 			{
 				if (c != ch)
 					throw error(String.Format("Expected '{0}' instead of '{1}'", c, ch));
-				if (at < len)
-				{
-					ch = text[at];
-					at += 1;
-				}
+				if (!atEnd())
+					ch = read();
 				else
 					data = false;
 				return data;
@@ -122,45 +173,46 @@ namespace System.Text
 								uffff = 0;
 								for (i = 0; i < 4; i += 1)
 								{
-									hex = Convert.ToInt32(string.Empty + cont(), 16);
+									cont();
+									hex = Convert.ToInt32(String.Empty + ch, 16);
 									uffff = uffff * 16 + hex;
 								}
 								cs.Append(Convert.ToChar(uffff));
 							}
 							else
 							{
-								bool end;
+								bool stop;
 								switch (ch)
 								{
 									case '"':
-										end = false;
+										stop = false;
 										break;
 									case '\\':
-										end = false;
+										stop = false;
 										break;
 									case '/':
-										end = false;
+										stop = false;
 										break;
 									case 'b':
-										end = false;
+										stop = false;
 										break;
 									case 'f':
-										end = false;
+										stop = false;
 										break;
 									case 'n':
-										end = false;
+										stop = false;
 										break;
 									case 'r':
-										end = false;
+										stop = false;
 										break;
 									case 't':
-										end = false;
+										stop = false;
 										break;
 									default:
-										end = true;
+										stop = true;
 										break;
 								}
-								if (!end)
+								if (!stop)
 									cs.Append(ESC[ch]);
 								else
 									break;
