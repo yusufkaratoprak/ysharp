@@ -13,10 +13,10 @@ namespace TestJSONParser
         // Note: fathers.json.txt was generated using:
         // http://experiments.mennovanslooten.nl/2010/mockjson/tryit.html
         // avg: file size ~ exec time (on Lenovo Win7 PC, i5, 2.50GHz, 6Gb)
-        const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 1.1sec
+        const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 0.8sec
         const string SMALL_TEST_FILE_PATH = @"..\..\small.json.txt"; // avg: 4kb ~ 15ms
 #if WITH_HUGE_TEST
-        const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
+        const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 16sec
 #endif
         static JSONParser jsonParser = new JSONParser();
 
@@ -28,7 +28,7 @@ namespace TestJSONParser
             Console.WriteLine("Huge Test - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
             Console.WriteLine();
 
-            var serializer = new System.Web.Script.Serialization.JavaScriptSerializer
+            /*var serializer = new System.Web.Script.Serialization.JavaScriptSerializer
             {
                 MaxJsonLength = int.MaxValue
             };
@@ -36,7 +36,7 @@ namespace TestJSONParser
             DateTime start1 = DateTime.Now;
             obj = serializer.DeserializeObject(json);
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start1).TotalMilliseconds);
-            Console.WriteLine();
+            Console.WriteLine();*/
 
             Console.WriteLine("\tParsed by {0} in...", jsonParser.GetType().FullName);
             DateTime start2 = DateTime.Now;
@@ -50,29 +50,43 @@ namespace TestJSONParser
 
         static void Top10Youtube2013Test()
         {
+            // Yup, as easy as this, step #1:
+            var YOUTUBE_SCHEMA = new
+            {
+                data = new
+                {
+                    items = new[]
+                    {
+                        new
+                        {
+                            title = "",
+                            category = "",
+                            uploaded = "",
+                            player = new
+                            {
+                                @default = ""
+                            }
+                        }
+                    }
+                }
+            };
+
             Console.WriteLine("Top 10 Youtube 2013 Test - JSON parse...");
             Console.WriteLine();
             System.Net.WebRequest www = System.Net.WebRequest.Create("https://gdata.youtube.com/feeds/api/videos?q=2013&max-results=10&v=2&alt=jsonc");
             using (System.IO.Stream stream = www.GetResponse().GetResponseStream())
             {
-                Console.WriteLine("\tParsed by {0} in...", jsonParser.GetType().FullName);
-                DateTime start = DateTime.Now;
-                var parsed = jsonParser.Parse(stream);
-                Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
+                // And as easy as that, step #2:
+                var parsed = jsonParser.Parse(stream, YOUTUBE_SCHEMA);
+
                 Console.WriteLine();
-                var data = parsed.JSONObject()["data"];
-                var items = data.JSONObject()["items"].JSONArray();
-                Console.WriteLine("Press a key...");
-                Console.WriteLine();
-                Console.ReadKey();
-                foreach (object item in items)
+                foreach (var item in parsed.data.items)
                 {
-                    var post = item.JSONObject();
-                    var title = (string)post["title"];
-                    var category = (string)post["category"];
-                    var uploaded = (string)post["uploaded"];
-                    var player = post["player"].JSONObject();
-                    var link = (string)player["default"];
+                    var title = item.title;
+                    var category = item.category;
+                    var uploaded = item.uploaded;
+                    var player = item.player;
+                    var link = player.@default;
                     Console.WriteLine("\t\"{0}\" (category: {1}, uploaded: {2})", title, category, uploaded);
                     Console.WriteLine("\t\tURL: {0}", link);
                     Console.WriteLine();
@@ -133,10 +147,10 @@ namespace TestJSONParser
             Console.WriteLine();
             foreach (object item in items)
             {
-                var father = item.JSONObject();
+                var father = item.AsJSONObject();
                 var name = (string)father["name"];
-                var sons = father["sons"].JSONArray();
-                var daughters = father["daughters"].JSONArray();
+                var sons = father["sons"].AsJSONArray();
+                var daughters = father["daughters"].AsJSONArray();
                 Console.WriteLine("{0}", name);
                 Console.WriteLine("\thas {0} son(s), and {1} daughter(s)", sons.Count, daughters.Count);
                 Console.WriteLine();
