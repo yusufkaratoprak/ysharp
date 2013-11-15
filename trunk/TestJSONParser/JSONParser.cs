@@ -535,7 +535,7 @@ namespace System.Text.Notations
 
             private object Parse(object source, JSONParserSettings settings, Type type)
             {
-                return new JSONPhrase(settings, source).CompileTo(type);
+                return new JSONPhrase((settings ?? Settings), source).CompileTo(type);
             }
 
             public JSONParser Configure()
