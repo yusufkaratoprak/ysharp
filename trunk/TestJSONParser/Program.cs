@@ -18,7 +18,14 @@ namespace TestJSONParser
 #if WITH_HUGE_TEST
         const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 16sec
 #endif
-        static JSONParser jsonParser = new JSONParser();
+        static JSONParser jsonParser = new JSONParser().
+            Configure
+            (
+                new JSONParserSettings
+                {
+                    LiteralsBuffer = 1024
+                }
+            );
 
 #if WITH_HUGE_TEST
         static void HugeTest()
