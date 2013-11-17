@@ -3,80 +3,87 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace System.Text.JSON
+namespace System.Text.Json
 {
     public static class Extensions
     {
-        public static IDictionary<string, object> JSONObject(this object obj)
+        public static T As<T>(this object obj, T prototype)
+        {
+            return (T)obj;
+        }
+
+        public static IDictionary<string, object> JsonObject(this object obj)
         {
             return (IDictionary<string, object>)obj;
         }
 
-        public static IList<object> JSONArray(this object obj)
+        public static IList<object> JsonArray(this object obj)
         {
             return (IList<object>)obj;
         }
 
-        public static object FromJSON(this object obj, string text)
+        public static object FromJson(this object obj, string text)
         {
-            return FromJSON(obj, null, text);
+            return FromJson(obj, text, null);
         }
 
-        public static object FromJSON(this object obj, ParserSettings settings, string text)
+        public static object FromJson(this object obj, string text, Reviver<object> reviver)
         {
-            return obj.FromJSON<object>(settings, text);
+            return obj.FromJson<object>(text, reviver);
         }
 
-        public static object FromJSON(this object obj, System.IO.Stream stream)
+        public static object FromJson(this object obj, System.IO.Stream stream)
         {
-            return FromJSON(obj, null, stream);
+            return FromJson(obj, stream, null);
         }
 
-        public static object FromJSON(this object obj, ParserSettings settings, System.IO.Stream stream)
+        public static object FromJson(this object obj, System.IO.Stream stream, Reviver<object> reviver)
         {
-            return obj.FromJSON<object>(settings, stream);
+            return obj.FromJson<object>(stream, reviver);
         }
 
-        public static object FromJSON(this object obj, System.IO.StreamReader reader)
+        public static object FromJson(this object obj, System.IO.StreamReader reader)
         {
-            return FromJSON(obj, null, reader);
+            return FromJson(obj, reader, null);
         }
 
-        public static object FromJSON(this object obj, ParserSettings settings, System.IO.StreamReader reader)
+        public static object FromJson(this object obj, System.IO.StreamReader reader, Reviver<object> reviver)
         {
-            return obj.FromJSON<object>(settings, reader);
+            return obj.FromJson<object>(reader, reviver);
         }
 
         public static T FromJSON<T>(this T prototype, string text)
         {
-            return FromJSON<T>(prototype, null, text);
+            return FromJson<T>(prototype, text, null);
         }
 
-        public static T FromJSON<T>(this T prototype, ParserSettings settings, string text)
+        public static T FromJson<T>(this T prototype, string text, Reviver<object> reviver)
         {
-            return new Parser().Parse(text, settings, prototype);
+            return new Parser().Parse(text, prototype, reviver);
         }
 
-        public static T FromJSON<T>(this T prototype, System.IO.Stream stream)
+        public static T FromJson<T>(this T prototype, System.IO.Stream stream)
         {
-            return FromJSON<T>(prototype, null, stream);
+            return FromJson<T>(prototype, stream, null);
         }
 
-        public static T FromJSON<T>(this T prototype, ParserSettings settings, System.IO.Stream stream)
+        public static T FromJson<T>(this T prototype, System.IO.Stream stream, Reviver<object> reviver)
         {
-            return new Parser().Parse(stream, settings, prototype);
+            return new Parser().Parse(stream, prototype, reviver);
         }
 
-        public static T FromJSON<T>(this T prototype, System.IO.StreamReader reader)
+        public static T FromJson<T>(this T prototype, System.IO.StreamReader reader)
         {
-            return FromJSON<T>(prototype, null, reader);
+            return FromJson<T>(prototype, reader, null);
         }
 
-        public static T FromJSON<T>(this T prototype, ParserSettings settings, System.IO.StreamReader reader)
+        public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, Reviver<object> reviver)
         {
-            return new Parser().Parse(reader, settings, prototype);
+            return new Parser().Parse(reader, prototype, reviver);
         }
     }
+
+    public delegate T Reviver<T>(Type type, string key, T value);
 
     public class ParserSettings
     {
@@ -86,14 +93,14 @@ namespace System.Text.JSON
 
     public class Parser
     {
-        internal class JSONPhrase
+        internal class Phrase
         {
             private static readonly IDictionary<char, char> ESC = new Dictionary<char, char>();
             private const char NEXT = (char)0;
             private const int LSIZE = 4096;
 
             private ParserSettings config;
-            private System.Collections.Hashtable rti;
+            private System.Collections.Hashtable rtti;
             private System.IO.StreamReader str;
             private string txt;
             private bool ids;
@@ -120,15 +127,15 @@ namespace System.Text.JSON
                 }
             }
 
-            internal JSONPhrase(ParserSettings settings, object source)
+            internal Phrase(ParserSettings settings, object input)
             {
                 config = (settings ?? DefaultSettings);
-
+                rtti = new System.Collections.Hashtable();
                 ids = config.AcceptIdentifiers;
                 lsz = (((lsz = config.LiteralsBuffer) > 0) ? lsz : LSIZE);
-                rti = new System.Collections.Hashtable();
-                str = (source as System.IO.StreamReader);
-                txt = (source as string);
+
+                str = (input as System.IO.StreamReader);
+                txt = (input as string);
                 len = (txt ?? String.Empty).Length;
                 sb = null;
                 cs = new char[lsz];
@@ -176,34 +183,34 @@ namespace System.Text.JSON
                         sb = new StringBuilder(new String(cs, 0, ci)).Append(c);
             }
 
-            private System.Collections.Hashtable Known(Type t)
+            private System.Collections.Hashtable Known(Type type)
             {
-                return (System.Collections.Hashtable)(!rti.ContainsKey(t) ? (rti[t] = new System.Collections.Hashtable()) : rti[t]);
+                return (System.Collections.Hashtable)(!rtti.ContainsKey(type) ? (rtti[type] = new System.Collections.Hashtable()) : rtti[type]);
             }
 
-            private object Typed(object o, System.Collections.Hashtable h, string k)
+            private object Typed(object obj, System.Collections.Hashtable hash, string key)
             {
-                if (!h.ContainsKey(k))
+                if (!hash.ContainsKey(key))
                 {
-                    if (o is Type)
+                    if (obj is Type)
                     {
-                        var p = ((Type)o).GetProperty(k);
-                        return ((p != null) ? (h[k] = p) : null);
+                        var p = ((Type)obj).GetProperty(key);
+                        return ((p != null) ? (hash[key] = p) : null);
                     }
                     else
                     {
-                        var a = (System.Reflection.ParameterInfo[])o;
+                        var a = (System.Reflection.ParameterInfo[])obj;
                         int i = a.Length;
                         while (--i >= 0)
                         {
-                            if (a[i].Name == k)
+                            if (a[i].Name == key)
                                 break;
                         }
-                        return ((i >= 0) ? (h[k] = i) : null);
+                        return ((i >= 0) ? (hash[key] = i) : null);
                     }
                 }
                 else
-                    return h[k];
+                    return hash[key];
             }
 
             private object Word()
@@ -233,7 +240,7 @@ namespace System.Text.JSON
                 throw Error(String.Format("Unexpected '{0}'", ch));
             }
 
-            private double Num()
+            private double Number()
             {
                 sb = null;
                 ci = 0;
@@ -271,7 +278,7 @@ namespace System.Text.JSON
                 return double.Parse((sb != null) ? sb.ToString() : new String(cs, 0, ci));
             }
 
-            private string Str(bool k)
+            private string Literal(bool key)
             {
                 int hex, i, uffff;
                 sb = null;
@@ -344,7 +351,7 @@ namespace System.Text.JSON
                 }
                 else
                 {
-                    if (k && ids)
+                    if (key && ids)
                     {
                         if ((ch == '$') || (ch == '_') || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= 'a') && (ch <= 'z')))
                             Append(ch);
@@ -362,11 +369,11 @@ namespace System.Text.JSON
                 throw Error("Bad string");
             }
 
-            private object Obj(Type t)
+            private object Object(Type type, Reviver<object> reviver)
             {
-                bool obj = (t == typeof(object));
-                bool isa = ((t.Name[0] == '<') && t.IsSealed);
-                var ctr = (!obj ? (!isa ? t.GetConstructors().OrderBy(c => c.GetParameters().Length).First() : t.GetConstructors()[0]) : null);
+                bool obj = (type == typeof(object));
+                bool isa = ((type.Name[0] == '<') && type.IsSealed);
+                var ctr = (!obj ? (!isa ? type.GetConstructors().OrderBy(c => c.GetParameters().Length).First() : type.GetConstructors()[0]) : null);
                 var cta = (!obj ? ctr.GetParameters() : null);
                 var arg = (!obj ? new object[cta.Length] : null);
                 object o = null;
@@ -377,24 +384,24 @@ namespace System.Text.JSON
                     if (!obj)
                     {
                         if (!isa)
-                            o = Activator.CreateInstance(t, arg);
+                            o = Activator.CreateInstance(type, arg);
                     }
                     else
                         o = d;
-                    var ti = (!obj ? Known(t) : null);
+                    var ti = (!obj ? Known(type) : null);
                     if (data) read('{');
                     while (data && (ch <= ' ')) // Spaces
                         read(NEXT);
                     if (ch == '}')
                     {
                         if (data) read('}');
-                        return (isa ? Activator.CreateInstance(t, arg) : o);
+                        return (isa ? Activator.CreateInstance(type, arg) : o);
                     }
                     while (data)
                     {
                         object m;
-                        k = String.Intern(Str(true));
-                        m = (!obj ? Typed((isa ? (object)cta : t), ti, k) : null);
+                        k = String.Intern(Literal(true));
+                        m = (!obj ? Typed((isa ? (object)cta : type), ti, k) : null);
                         while (data && (ch <= ' ')) // Spaces
                             read(NEXT);
                         if (data) read(':');
@@ -403,23 +410,25 @@ namespace System.Text.JSON
                             if (!isa)
                             {
                                 var p = (System.Reflection.PropertyInfo)m;
-                                p.SetValue(o, CompileTo(p.PropertyType, true), null);
+                                var v = CompileTo(p.PropertyType, reviver, true);
+                                p.SetValue(o, ((reviver != null) ? reviver(type, k, v) : v), null);
                             }
                             else
                             {
                                 int i = (int)m;
-                                arg[i] = CompileTo(cta[i].ParameterType, true);
+                                var v = CompileTo(cta[i].ParameterType, reviver, true);
+                                arg[i] = ((reviver != null) ? reviver(type, k, v) : v);
                             }
                         }
                         else
                         {
-                            var p = CompileTo(typeof(object), true);
+                            var v = CompileTo(typeof(object), reviver, true);
                             if (obj)
                             {
 
                                 if (d.ContainsKey(k))
                                     throw Error(String.Format("Duplicate key \"{0}\"", k));
-                                d[k] = p;
+                                d[k] = ((reviver != null) ? reviver(type, k, v) : v);
                             }
                         }
                         while (data && (ch <= ' ')) // Spaces
@@ -427,7 +436,7 @@ namespace System.Text.JSON
                         if (ch == '}')
                         {
                             if (data) read('}');
-                            return (isa ? Activator.CreateInstance(t, arg) : o);
+                            return (isa ? Activator.CreateInstance(type, arg) : o);
                         }
                         if (data) read(',');
                         while (data && (ch <= ' ')) // Spaces
@@ -437,11 +446,11 @@ namespace System.Text.JSON
                 throw Error("Bad object");
             }
 
-            private System.Collections.IEnumerable Arr(Type t)
+            private System.Collections.IEnumerable Array(Type type, Reviver<object> reviver)
             {
-                var isa = t.IsArray;
-                var ie = (isa || (t.GetInterfaces().Where(i => typeof(System.Collections.IEnumerable).IsAssignableFrom(i)).FirstOrDefault() != null));
-                var et = (ie ? (isa ? t.GetElementType() : t.GetGenericArguments()[0]) : null);
+                var isa = type.IsArray;
+                var ie = (isa || (type.GetInterfaces().Where(i => typeof(System.Collections.IEnumerable).IsAssignableFrom(i)).FirstOrDefault() != null));
+                var et = (ie ? (isa ? type.GetElementType() : type.GetGenericArguments()[0]) : null);
                 var lt = ((et != null) ? typeof(List<>).MakeGenericType(et) : typeof(List<object>));
                 var l = (System.Collections.IList)Activator.CreateInstance(lt, null);
                 if (ch == '[')
@@ -456,7 +465,7 @@ namespace System.Text.JSON
                     }
                     while (data)
                     {
-                        l.Add(CompileTo(et, true));
+                        l.Add(CompileTo(et, reviver, true));
                         while (data && (ch <= ' ')) // Spaces
                             read(NEXT);
                         if (ch == ']')
@@ -472,7 +481,7 @@ namespace System.Text.JSON
                 throw Error("Bad array");
             }
 
-            private object CompileTo(Type type, bool parse)
+            private object CompileTo(Type type, Reviver<object> reviver, bool parse)
             {
                 type = (type ?? typeof(object));
                 while (data && (ch <= ' ')) // Spaces
@@ -480,21 +489,21 @@ namespace System.Text.JSON
                 switch (ch)
                 {
                     case '{':
-                        return Obj(type);
+                        return Object(type, reviver);
                     case '[':
-                        return Arr(type);
+                        return Array(type, reviver);
                     case '"':
-                        return Str(false);
+                        return Literal(false);
                     case '-':
-                        return Num();
+                        return Number();
                     default:
-                        return ((ch >= '0') && (ch <= '9') ? Num() : Word());
+                        return ((ch >= '0') && (ch <= '9') ? Number() : Word());
                 }
             }
 
-            internal object CompileTo(Type type)
+            internal object CompileTo(Type type, Reviver<object> reviver)
             {
-                var obj = CompileTo(type, true);
+                var obj = CompileTo(type, reviver, true);
                 while (data && (ch <= ' ')) // Spaces
                     read(NEXT);
                 if (data)
@@ -502,7 +511,7 @@ namespace System.Text.JSON
                 return obj;
             }
 
-            static JSONPhrase()
+            static Phrase()
             {
                 ESC['"'] = '"';
                 ESC['\\'] = '\\';
@@ -515,14 +524,24 @@ namespace System.Text.JSON
             }
         }
 
-        private object Parse(object source, ParserSettings settings)
+        private object Parse(object input, ParserSettings settings)
         {
-            return Parse(source, settings, null);
+            return Parse(input, settings, null as Reviver<object>);
         }
 
-        private object Parse(object source, ParserSettings settings, Type type)
+        private object Parse(object input, ParserSettings settings, Reviver<object> reviver)
         {
-            return new JSONPhrase((settings ?? Settings), source).CompileTo(type);
+            return Parse(input, settings, null, reviver);
+        }
+
+        private object Parse(object input, ParserSettings settings, Type type)
+        {
+            return Parse(input, settings, type, null);
+        }
+
+        private object Parse(object input, ParserSettings settings, Type type, Reviver<object> reviver)
+        {
+            return new Phrase((settings ?? Settings), input).CompileTo(type, reviver);
         }
 
         public Parser() : this(null) { }
@@ -590,9 +609,23 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.Stream stream, ParserSettings settings)
         {
+            return Parse(stream, settings, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/). This can be, either:
+        /// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object).
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public object Parse(System.IO.Stream stream, ParserSettings settings, Reviver<object> reviver)
+        {
             using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
             {
-                return Parse(reader, settings);
+                return Parse(reader, settings, reviver);
             }
         }
 
@@ -605,7 +638,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.StreamReader reader)
         {
-            return Parse(reader, null);
+            return Parse(reader, null as Reviver<object>);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/). This can be, either:
+        /// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object).
+        /// </summary>
+        /// <param name="reader">The reader of JSON text to parse.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public object Parse(System.IO.StreamReader reader, Reviver<object> reviver)
+        {
+            return Parse(reader, null, reviver);
         }
 
         /// <summary>
@@ -618,7 +664,21 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.StreamReader reader, ParserSettings settings)
         {
-            return Parse(reader as object, settings);
+            return Parse(reader as object, settings, null as Reviver<object>);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/). This can be, either:
+        /// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object).
+        /// </summary>
+        /// <param name="reader">The reader of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public object Parse(System.IO.StreamReader reader, ParserSettings settings, Reviver<object> reviver)
+        {
+            return Parse(reader as object, settings, reviver);
         }
 
         /// <summary>
@@ -629,7 +689,19 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(string text)
         {
-            return (T)Parse<T>(text, null);
+            return Parse<T>(text, null as Reviver<object>);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text string to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="text">The string of JSON text to parse.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(string text, Reviver<object> reviver)
+        {
+            return Parse<T>(text, null, reviver);
         }
 
         /// <summary>
@@ -641,7 +713,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(string text, ParserSettings settings)
         {
-            return (T)Parse(text as object, settings, typeof(T));
+            return Parse<T>(text, settings, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text string to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="text">The string of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(string text, ParserSettings settings, Reviver<object> reviver)
+        {
+            return (T)Parse(text as object, settings, typeof(T), reviver);
         }
 
         /// <summary>
@@ -653,7 +738,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(string text, T prototype)
         {
-            return Parse<T>(text, null, prototype);
+            return Parse<T>(text, prototype, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text string to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the anonymous type of the specified prototype.
+        /// </summary>
+        /// <param name="text">The string of JSON text to parse.</param>
+        /// <param name="prototype">The prototype for the target type.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(string text, T prototype, Reviver<object> reviver)
+        {
+            return Parse<T>(text, null, prototype, reviver);
         }
 
         /// <summary>
@@ -666,7 +764,21 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(string text, ParserSettings settings, T prototype)
         {
-            return Parse<T>(text, settings);
+            return Parse<T>(text, settings, prototype, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text string to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the anonymous type of the specified prototype.
+        /// </summary>
+        /// <param name="text">The string of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="prototype">The prototype for the target type.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(string text, ParserSettings settings, T prototype, Reviver<object> reviver)
+        {
+            return (T)Parse(text as object, settings, typeof(T), reviver);
         }
 
         /// <summary>
@@ -677,7 +789,19 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.Stream stream)
         {
-            return Parse<T>(stream, null);
+            return Parse<T>(stream, null as Reviver<object>);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.Stream stream, Reviver<object> reviver)
+        {
+            return Parse<T>(stream, null, reviver);
         }
 
         /// <summary>
@@ -689,9 +813,22 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.Stream stream, ParserSettings settings)
         {
+            return Parse<T>(stream, settings, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.Stream stream, ParserSettings settings, Reviver<object> reviver)
+        {
             using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
             {
-                return (T)Parse(reader as object, settings, typeof(T));
+                return (T)Parse(reader as object, settings, typeof(T), reviver);
             }
         }
 
@@ -704,7 +841,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.Stream stream, T prototype)
         {
-            return Parse<T>(stream, null, prototype);
+            return Parse<T>(stream, prototype, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the anonymous type of the specified prototype.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="prototype">The prototype for the target type.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.Stream stream, T prototype, Reviver<object> reviver)
+        {
+            return Parse<T>(stream, null, prototype, reviver);
         }
 
         /// <summary>
@@ -717,7 +867,21 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype)
         {
-            return Parse<T>(stream, settings);
+            return Parse<T>(stream, settings, prototype, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the anonymous type of the specified prototype.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="prototype">The prototype for the target type.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype, Reviver<object> reviver)
+        {
+            return Parse<T>(stream, settings, reviver);
         }
 
         /// <summary>
@@ -728,7 +892,19 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.StreamReader reader)
         {
-            return Parse<T>(reader, null);
+            return Parse<T>(reader, null as Reviver<object>);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="reader">The reader of JSON text to parse.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.StreamReader reader, Reviver<object> reviver)
+        {
+            return Parse<T>(reader, null, reviver);
         }
 
         /// <summary>
@@ -740,7 +916,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings)
         {
-            return (T)Parse(reader as object, settings, typeof(T));
+            return Parse<T>(reader, settings, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="reader">The reader of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings, Reviver<object> reviver)
+        {
+            return (T)Parse(reader as object, settings, typeof(T), reviver);
         }
 
         /// <summary>
@@ -752,6 +941,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         /// <summary>
         public T Parse<T>(System.IO.StreamReader reader, T prototype)
+        {
+            return Parse<T>(reader, prototype, null);
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the anonymous type of the specified prototype.
+        /// </summary>
+        /// <param name="reader">The reader of JSON text to parse.</param>
+        /// <param name="prototype">The prototype for the target type.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        /// <summary>
+        public T Parse<T>(System.IO.StreamReader reader, T prototype, Reviver<object> reviver)
         {
             return Parse<T>(reader, null, prototype);
         }
@@ -765,7 +968,20 @@ namespace System.Text.JSON
         /// <returns>The deserialized object.</returns>
         public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype)
         {
-            return Parse<T>(reader, settings);
+            return Parse<T>(reader, settings, prototype, null);
+        }
+
+        /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the anonymous type of the specified prototype.
+        /// </summary>
+        /// <param name="reader">The reader of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="prototype">The prototype for the target type.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype, Reviver<object> reviver)
+        {
+            return (T)Parse(reader as object, settings, typeof(T), reviver);
         }
 
         public ParserSettings Settings { get; set; }
