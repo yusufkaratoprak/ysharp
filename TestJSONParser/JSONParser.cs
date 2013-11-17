@@ -57,43 +57,78 @@ namespace System.Text.Json
             return obj.FromJson<object>(reader, revivers);
         }
 
-        public static object FromJson<T>(this T prototype, string text)
+        public static object FromJson<T>(this T prototype, string text, Parsing value)
         {
             return new Parser().Parse(text, prototype);
         }
 
-        public static object FromJson<T>(this T prototype, string text, params Reviver[] revivers)
+        public static T FromJson<T>(this T prototype, string text)
+        {
+            return (T)new Parser().Parse(text, prototype);
+        }
+
+        public static object FromJson<T>(this T prototype, string text, Parsing value, params Reviver[] revivers)
         {
             return new Parser().Parse(text, prototype, revivers);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.Stream stream)
+        public static T FromJson<T>(this T prototype, string text, params Reviver[] revivers)
+        {
+            return (T)new Parser().Parse(text, prototype, revivers);
+        }
+
+        public static object FromJson<T>(this T prototype, System.IO.Stream stream, Parsing value)
         {
             return new Parser().Parse(stream, prototype);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.Stream stream, params Reviver[] revivers)
+        public static T FromJson<T>(this T prototype, System.IO.Stream stream)
+        {
+            return (T)new Parser().Parse(stream, prototype);
+        }
+
+        public static object FromJson<T>(this T prototype, System.IO.Stream stream, Parsing value, params Reviver[] revivers)
         {
             return new Parser().Parse(stream, prototype, revivers);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader)
+        public static T FromJson<T>(this T prototype, System.IO.Stream stream, params Reviver[] revivers)
+        {
+            return (T)new Parser().Parse(stream, prototype, revivers);
+        }
+
+        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, Parsing value)
         {
             return new Parser().Parse(reader, prototype);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, params Reviver[] revivers)
+        public static T FromJson<T>(this T prototype, System.IO.StreamReader reader)
+        {
+            return (T)new Parser().Parse(reader, prototype);
+        }
+
+        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, Parsing value, params Reviver[] revivers)
         {
             return new Parser().Parse(reader, prototype, revivers);
         }
+
+        public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, params Reviver[] revivers)
+        {
+            return (T)new Parser().Parse(reader, prototype, revivers);
+        }
     }
 
-    public delegate Func<object> Reviver(Type type, string key, object value);
+    public delegate Func<object> Reviver(object target, Type type, object key, object value);
 
     public class ParserSettings
     {
         public bool AcceptIdentifiers { get; set; }
         public int LiteralsBuffer { get; set; }
+    }
+
+    public enum Parsing
+    {
+        Value
     }
 
     public class Parser
@@ -229,7 +264,7 @@ namespace System.Text.Json
                     return hash[key];
             }
 
-            private object Word(params Reviver[] revivers)
+            private object Word(Type target, params Reviver[] revivers)
             {
                 Reviver reviver;
                 switch (ch)
@@ -239,28 +274,28 @@ namespace System.Text.Json
                         if (data) read('r');
                         if (data) read('u');
                         if (data) read('e');
-                        reviver = revivers.FirstOrDefault(r => r(typeof(bool), null, true) != null);
-                        return ((reviver != null) ? reviver(typeof(bool), null, true)() : true);
+                        reviver = revivers.FirstOrDefault(r => r(target, typeof(bool), null, true) != null);
+                        return ((reviver != null) ? reviver(target, typeof(bool), null, true)() : true);
                     case 'f':
                         if (data) read('f');
                         if (data) read('a');
                         if (data) read('l');
                         if (data) read('s');
                         if (data) read('e');
-                        reviver = revivers.FirstOrDefault(r => r(typeof(bool), null, false) != null);
-                        return ((reviver != null) ? reviver(typeof(bool), null, false)() : false);
+                        reviver = revivers.FirstOrDefault(r => r(target, typeof(bool), null, false) != null);
+                        return ((reviver != null) ? reviver(target, typeof(bool), null, false)() : false);
                     case 'n':
                         if (data) read('n');
                         if (data) read('u');
                         if (data) read('l');
                         if (data) read('l');
-                        reviver = revivers.FirstOrDefault(r => r(typeof(object), null, null) != null);
-                        return ((reviver != null) ? reviver(typeof(object), null, null)() : null);
+                        reviver = revivers.FirstOrDefault(r => r(target, typeof(object), null, null) != null);
+                        return ((reviver != null) ? reviver(target, typeof(object), null, null)() : null);
                 }
                 throw Error(String.Format("Unexpected '{0}'", ch));
             }
 
-            private object Number(params Reviver[] revivers)
+            private object Number(Type target, params Reviver[] revivers)
             {
                 double n;
                 sb = null;
@@ -297,11 +332,11 @@ namespace System.Text.Json
                     }
                 }
                 n = double.Parse((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                Reviver reviver = revivers.FirstOrDefault(r => r(typeof(double), null, n) != null);
-                return ((reviver != null) ? reviver(typeof(double), null, n)() : n);
+                Reviver reviver = revivers.FirstOrDefault(r => r(target, typeof(double), null, n) != null);
+                return ((reviver != null) ? reviver(target, typeof(double), null, n)() : n);
             }
 
-            private object Literal(bool key, params Reviver[] revivers)
+            private object Literal(Type target, bool key, params Reviver[] revivers)
             {
                 string hint = (key ? DOT : null);
                 int hex, i, uffff;
@@ -316,8 +351,8 @@ namespace System.Text.Json
                         {
                             if (data) read(NEXT);
                             s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                            Reviver reviver = revivers.FirstOrDefault(r => r(typeof(string), hint, s) != null);
-                            return ((reviver != null) ? reviver(typeof(string), hint, s)() : s);
+                            Reviver reviver = revivers.FirstOrDefault(r => r(target, typeof(string), hint, s) != null);
+                            return ((reviver != null) ? reviver(target, typeof(string), hint, s)() : s);
                         }
                         if (ch == '\\')
                         {
@@ -392,8 +427,8 @@ namespace System.Text.Json
                             else
                             {
                                 s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                                Reviver reviver = revivers.FirstOrDefault(r => r(typeof(string), hint, s) != null);
-                                return ((reviver != null) ? reviver(typeof(string), hint, s)() : s);
+                                Reviver reviver = revivers.FirstOrDefault(r => r(target, typeof(string), hint, s) != null);
+                                return ((reviver != null) ? reviver(target, typeof(string), hint, s)() : s);
                             }
                     }
                 }
@@ -402,7 +437,7 @@ namespace System.Text.Json
 
             private object Object(Type type, params Reviver[] revivers)
             {
-                bool obj = (type == typeof(object));
+                bool obj = ((type == typeof(object)) || typeof(System.Collections.IDictionary).IsAssignableFrom(type));
                 bool isa = ((type.Name[0] == '<') && type.IsSealed);
                 var ctr = (!obj ? (!isa ? type.GetConstructors().OrderBy(c => c.GetParameters().Length).First() : type.GetConstructors()[0]) : null);
                 var cta = (!obj ? ctr.GetParameters() : null);
@@ -411,7 +446,7 @@ namespace System.Text.Json
                 string k;
                 if (ch == '{')
                 {
-                    var d = (obj ? new Dictionary<string, object>() : null);
+                    var d = (obj ? ((type != typeof(object)) ? (System.Collections.IDictionary)Activator.CreateInstance(type, null) : new Dictionary<string, object>()) : null);
                     if (!obj)
                     {
                         if (!isa)
@@ -430,11 +465,10 @@ namespace System.Text.Json
                     }
                     while (data)
                     {
-                        string s = (Literal(true, revivers) as string);
-                        object m;
-                        if (String.IsNullOrEmpty(s))
+                        object h = Literal(type, true, revivers), m;
+                        if (h == null)
                             throw Error("Bad key");
-                        k = String.Intern(s);
+                        k = (!obj ? String.Intern(h.ToString()) : null);
                         m = (!obj ? Typed((isa ? (object)cta : type), ti, k) : null);
                         while (data && (ch <= ' ')) // Spaces
                             read(NEXT);
@@ -444,16 +478,18 @@ namespace System.Text.Json
                             if (!isa)
                             {
                                 var p = (System.Reflection.PropertyInfo)m;
-                                var v = CompileTo(p.PropertyType, true, revivers);
-                                Reviver reviver = revivers.FirstOrDefault(r => r(type, k, v) != null);
-                                p.SetValue(o, ((reviver != null) ? reviver(type, k, v)() : v), null);
+                                var t = p.PropertyType;
+                                var v = CompileTo(t, true, revivers);
+                                Reviver reviver = revivers.FirstOrDefault(r => r(type, t, k, v) != null);
+                                p.SetValue(o, ((reviver != null) ? reviver(type, t, k, v)() : v), null);
                             }
                             else
                             {
                                 int i = (int)m;
-                                var v = CompileTo(cta[i].ParameterType, true, revivers);
-                                Reviver reviver = revivers.FirstOrDefault(r => r(type, k, v) != null);
-                                arg[i] = ((reviver != null) ? reviver(type, k, v)() : v);
+                                var t = cta[i].ParameterType;
+                                var v = CompileTo(t, true, revivers);
+                                Reviver reviver = revivers.FirstOrDefault(r => r(type, t, k, v) != null);
+                                arg[i] = ((reviver != null) ? reviver(type, t, k, v)() : v);
                             }
                         }
                         else
@@ -462,10 +498,12 @@ namespace System.Text.Json
                             if (obj)
                             {
                                 Reviver reviver;
-                                if (d.ContainsKey(k))
-                                    throw Error(String.Format("Duplicate key \"{0}\"", k));
-                                reviver = revivers.FirstOrDefault(r => r(type, k, v) != null);
-                                d[k] = ((reviver != null) ? reviver(type, k, v)() : v);
+                                if (d.Contains(h))
+                                    throw Error(String.Format("Duplicate key \"{0}\"", h));
+                                reviver = revivers.FirstOrDefault(r => r(o, typeof(object), h, v) != null);
+                                v = ((reviver != null) ? reviver(o, typeof(object), h, v)() : v);
+                                if (v != d)
+                                    d[h] = v;
                             }
                         }
                         while (data && (ch <= ' ')) // Spaces
@@ -530,11 +568,11 @@ namespace System.Text.Json
                     case '[':
                         return Array(type, revivers);
                     case '"':
-                        return Literal(false, revivers);
+                        return Literal(type, false, revivers);
                     case '-':
-                        return Number(revivers);
+                        return Number(type, revivers);
                     default:
-                        return ((ch >= '0') && (ch <= '9') ? Number(revivers) : Word(revivers));
+                        return ((ch >= '0') && (ch <= '9') ? Number(type, revivers) : Word(type, revivers));
                 }
             }
 
@@ -545,8 +583,8 @@ namespace System.Text.Json
                     read(NEXT);
                 if (data)
                     throw Error("Unexpected content");
-                Reviver reviver = revivers.FirstOrDefault(r => r(type, null, obj) != null); 
-                return ((reviver != null) ? reviver(type, null, obj)() : obj);
+                Reviver reviver = revivers.FirstOrDefault(r => r(type, null, null, obj) != null); 
+                return ((reviver != null) ? reviver(type, null, null, obj)() : obj);
             }
         }
 
