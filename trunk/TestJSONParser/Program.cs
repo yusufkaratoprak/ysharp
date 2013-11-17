@@ -50,19 +50,18 @@ namespace TestJSONParser
 
         static void Top10Youtube2013Test()
         {
-            var JSON_DATE =
-                new
-                {
-                    Year = 0,
-                    Month = 0,
-                    Day = 0
-                };
+            var JSON_DATE = new
+            {
+                Year = 0,
+                Month = 0,
+                Day = 0
+            };
 
             Reviver ToDate =
-                (type, key, value) =>
-                    (type == typeof(double)) ?
+                (target, type, key, value) =>
+                    (target == typeof(int)) ?
                         (Func<object>)(() => Convert.ToInt32(value)) :
-                        ((type == JSON_DATE.GetType()) && (key == null)) ?
+                        ((target == JSON_DATE.GetType()) && (type == null)) ?
                             (Func<object>)
                             (
                                 () => new DateTime
@@ -74,14 +73,14 @@ namespace TestJSONParser
                             ) :
                             null;
 
-            DateTime dateTime =
+            var dateTime =
                 JSON_DATE.
                 FromJson
                 (
                     @" { ""Year"": 1970, ""Month"": 5, ""Day"": 10 }",
+                    Parsing.Value,
                     ToDate
-                ).
-                As<DateTime>();
+                ).As<DateTime>();
 
             Console.WriteLine(dateTime);
             Console.WriteLine();
@@ -106,7 +105,7 @@ namespace TestJSONParser
                                 Updated = DateTime.Now,
                                 Player = new
                                 {
-                                    @Default = ""
+                                    Default = ""
                                 }
                             }
                         }
@@ -118,13 +117,13 @@ namespace TestJSONParser
                     (
                         stream,
                         YOUTUBE_SCHEMA,
-                        (type, key, value) =>
+                        (target, type, key, value) =>
                             // maps: "data" => "Data", "items" => "Items", "title" => "Title", ...etc
-                            (key == Parser.DOT) ?
+                            ((key as string) == Parser.DOT) ?
                                 (Func<object>)(() => String.Concat((char)(value.ToString()[0] - 32), value.ToString().Substring(1))) :
                                 null,
-                        (type, key, value) =>
-                            ((type == YOUTUBE_SCHEMA.Data.Items[0].GetType()) && (key == "Uploaded") || (key == "Updated")) ?
+                        (target, type, key, value) =>
+                            (target == typeof(DateTime)) ?
                                 (Func<object>)(() => DateTime.Parse((string)value)) :
                                 null
                     ).As(YOUTUBE_SCHEMA);
@@ -136,7 +135,7 @@ namespace TestJSONParser
                     var category = item.Category;
                     var uploaded = item.Uploaded;
                     var player = item.Player;
-                    var link = player.@Default;
+                    var link = player.Default;
                     Console.WriteLine("\t\"{0}\" (category: {1}, uploaded: {2})", title, category, uploaded);
                     Console.WriteLine("\t\tURL: {0}", link);
                     Console.WriteLine();
@@ -153,7 +152,6 @@ namespace TestJSONParser
 #if WITH_HUGE_TEST
             HugeTest();
 #endif
-
             string small = System.IO.File.ReadAllText(SMALL_TEST_FILE_PATH);
             Console.WriteLine("Small Test - JSON parse... {0} bytes ({1} kb)", small.Length, ((decimal)small.Length / (decimal)1024));
             Console.WriteLine();
@@ -187,20 +185,19 @@ namespace TestJSONParser
             Console.WriteLine("Press '1' to inspect our result object,\r\nany other key to inspect Microsoft's JS serializer result object...");
             var parsed = ((Console.ReadKey().KeyChar == '1') ? myObj : msObj);
 
-            IList<object> items = (IList<object>)((IDictionary<string, object>)parsed)["fathers"];
+            IList<object> fathers = parsed.JsonObject()["fathers"].JsonArray();
             Console.WriteLine();
-            Console.WriteLine("Found : {0} fathers", items.Count);
+            Console.WriteLine("Found : {0} fathers", fathers.Count);
             Console.WriteLine();
             Console.WriteLine("Press a key to list them...");
             Console.WriteLine();
             Console.ReadKey();
             Console.WriteLine();
-            foreach (object item in items)
+            foreach (object father in fathers)
             {
-                var father = item.JsonObject();
-                var name = (string)father["name"];
-                var sons = father["sons"].JsonArray();
-                var daughters = father["daughters"].JsonArray();
+                var name = (string)father.JsonObject()["name"];
+                var sons = father.JsonObject()["sons"].JsonArray();
+                var daughters = father.JsonObject()["daughters"].JsonArray();
                 Console.WriteLine("{0}", name);
                 Console.WriteLine("\thas {0} son(s), and {1} daughter(s)", sons.Count, daughters.Count);
                 Console.WriteLine();
