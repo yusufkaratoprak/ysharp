@@ -639,7 +639,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="stream">The stream of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.Stream stream, ParserSettings settings, params Reviver[] revivers)
         {
@@ -667,7 +667,7 @@ namespace System.Text.Json
         /// null, or true/false, or a System.Double, or a System.String, or an IList(object), or an IDictionary(string, object).
         /// </summary>
         /// <param name="reader">The reader of JSON text to parse.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.StreamReader reader, params Reviver[] revivers)
         {
@@ -694,7 +694,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.StreamReader reader, ParserSettings settings, params Reviver[] revivers)
         {
@@ -717,7 +717,7 @@ namespace System.Text.Json
         /// (as defined by http://json.org/), assignment-compatible with the specified type.
         /// </summary>
         /// <param name="text">The string of JSON text to parse.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(string text, params Reviver[] revivers)
         {
@@ -742,7 +742,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="text">The string of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(string text, ParserSettings settings, params Reviver[] revivers)
         {
@@ -767,7 +767,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="text">The string of JSON text to parse.</param>
         /// <param name="prototype">The prototype for the target type.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(string text, T prototype, params Reviver[] revivers)
         {
@@ -794,7 +794,7 @@ namespace System.Text.Json
         /// <param name="text">The string of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="prototype">The prototype for the target type.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(string text, ParserSettings settings, T prototype, params Reviver[] revivers)
         {
@@ -820,7 +820,7 @@ namespace System.Text.Json
         /// (as defined by http://json.org/), assignment-compatible with the specified type.
         /// </summary>
         /// <param name="stream">The stream of JSON text to parse.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.Stream stream, params Reviver[] revivers)
         {
@@ -851,7 +851,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="stream">The stream of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.Stream stream, ParserSettings settings, params Reviver[] revivers)
         {
@@ -882,7 +882,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="stream">The stream of JSON text to parse.</param>
         /// <param name="prototype">The prototype for the target type.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.Stream stream, T prototype, params Reviver[] revivers)
         {
@@ -915,7 +915,7 @@ namespace System.Text.Json
         /// <param name="stream">The stream of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="prototype">The prototype for the target type.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype, params Reviver[] revivers)
         {
@@ -941,7 +941,7 @@ namespace System.Text.Json
         /// (as defined by http://json.org/), assignment-compatible with the specified type.
         /// </summary>
         /// <param name="reader">The reader of JSON text to parse.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.StreamReader reader, params Reviver[] revivers)
         {
@@ -966,7 +966,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.StreamReader reader, ParserSettings settings, params Reviver[] revivers)
         {
@@ -992,7 +992,7 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="prototype">The prototype for the target type.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         /// <summary>
         public object Parse<T>(System.IO.StreamReader reader, T prototype, params Reviver[] revivers)
@@ -1018,7 +1018,7 @@ namespace System.Text.Json
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="prototype">The prototype for the target type.</param>
-        /// <param name="reviver">The reviver to use.</param>
+        /// <param name="revivers">The revivers to use.</param>
         /// <returns>The deserialized object.</returns>
         public object Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype, params Reviver[] revivers)
         {
