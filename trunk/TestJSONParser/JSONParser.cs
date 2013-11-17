@@ -7,6 +7,11 @@ namespace System.Text.Json
 {
     public static class Extensions
     {
+        public static T As<T>(this object obj)
+        {
+            return (T)obj;
+        }
+
         public static T As<T>(this object obj, T prototype)
         {
             return (T)obj;
@@ -24,66 +29,66 @@ namespace System.Text.Json
 
         public static object FromJson(this object obj, string text)
         {
-            return FromJson(obj, text, null);
+            return obj.FromJson<object>(text);
         }
 
-        public static object FromJson(this object obj, string text, Reviver reviver)
+        public static object FromJson(this object obj, string text, params Reviver[] revivers)
         {
-            return obj.FromJson<object>(text, reviver);
+            return obj.FromJson<object>(text, revivers);
         }
 
         public static object FromJson(this object obj, System.IO.Stream stream)
         {
-            return FromJson(obj, stream, null);
+            return obj.FromJson<object>(stream);
         }
 
-        public static object FromJson(this object obj, System.IO.Stream stream, Reviver reviver)
+        public static object FromJson(this object obj, System.IO.Stream stream, params Reviver[] revivers)
         {
-            return obj.FromJson<object>(stream, reviver);
+            return obj.FromJson<object>(stream, revivers);
         }
 
         public static object FromJson(this object obj, System.IO.StreamReader reader)
         {
-            return FromJson(obj, reader, null);
+            return obj.FromJson<object>(reader);
         }
 
-        public static object FromJson(this object obj, System.IO.StreamReader reader, Reviver reviver)
+        public static object FromJson(this object obj, System.IO.StreamReader reader, params Reviver[] revivers)
         {
-            return obj.FromJson<object>(reader, reviver);
+            return obj.FromJson<object>(reader, revivers);
         }
 
-        public static T FromJSON<T>(this T prototype, string text)
+        public static object FromJson<T>(this T prototype, string text)
         {
-            return FromJson<T>(prototype, text, null);
+            return new Parser().Parse(text, prototype);
         }
 
-        public static T FromJson<T>(this T prototype, string text, Reviver reviver)
+        public static object FromJson<T>(this T prototype, string text, params Reviver[] revivers)
         {
-            return new Parser().Parse(text, prototype, reviver);
+            return new Parser().Parse(text, prototype, revivers);
         }
 
-        public static T FromJson<T>(this T prototype, System.IO.Stream stream)
+        public static object FromJson<T>(this T prototype, System.IO.Stream stream)
         {
-            return FromJson<T>(prototype, stream, null);
+            return new Parser().Parse(stream, prototype);
         }
 
-        public static T FromJson<T>(this T prototype, System.IO.Stream stream, Reviver reviver)
+        public static object FromJson<T>(this T prototype, System.IO.Stream stream, params Reviver[] revivers)
         {
-            return new Parser().Parse(stream, prototype, reviver);
+            return new Parser().Parse(stream, prototype, revivers);
         }
 
-        public static T FromJson<T>(this T prototype, System.IO.StreamReader reader)
+        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader)
         {
-            return FromJson<T>(prototype, reader, null);
+            return new Parser().Parse(reader, prototype);
         }
 
-        public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, Reviver reviver)
+        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, params Reviver[] revivers)
         {
-            return new Parser().Parse(reader, prototype, reviver);
+            return new Parser().Parse(reader, prototype, revivers);
         }
     }
 
-    public delegate object Reviver(Type type, string key, object value);
+    public delegate Func<object> Reviver(Type type, string key, object value);
 
     public class ParserSettings
     {
@@ -224,8 +229,9 @@ namespace System.Text.Json
                     return hash[key];
             }
 
-            private object Word()
+            private object Word(params Reviver[] revivers)
             {
+                Reviver reviver;
                 switch (ch)
                 {
                     case 't':
@@ -233,26 +239,30 @@ namespace System.Text.Json
                         if (data) read('r');
                         if (data) read('u');
                         if (data) read('e');
-                        return true;
+                        reviver = revivers.FirstOrDefault(r => r(typeof(bool), null, true) != null);
+                        return ((reviver != null) ? reviver(typeof(bool), null, true)() : true);
                     case 'f':
                         if (data) read('f');
                         if (data) read('a');
                         if (data) read('l');
                         if (data) read('s');
                         if (data) read('e');
-                        return false;
+                        reviver = revivers.FirstOrDefault(r => r(typeof(bool), null, false) != null);
+                        return ((reviver != null) ? reviver(typeof(bool), null, false)() : false);
                     case 'n':
                         if (data) read('n');
                         if (data) read('u');
                         if (data) read('l');
                         if (data) read('l');
-                        return null;
+                        reviver = revivers.FirstOrDefault(r => r(typeof(object), null, null) != null);
+                        return ((reviver != null) ? reviver(typeof(object), null, null)() : null);
                 }
                 throw Error(String.Format("Unexpected '{0}'", ch));
             }
 
-            private double Number()
+            private object Number(params Reviver[] revivers)
             {
+                double n;
                 sb = null;
                 ci = 0;
                 if (ch == '-')
@@ -286,12 +296,16 @@ namespace System.Text.Json
                         if (data) read(NEXT);
                     }
                 }
-                return double.Parse((sb != null) ? sb.ToString() : new String(cs, 0, ci));
+                n = double.Parse((sb != null) ? sb.ToString() : new String(cs, 0, ci));
+                Reviver reviver = revivers.FirstOrDefault(r => r(typeof(double), null, n) != null);
+                return ((reviver != null) ? reviver(typeof(double), null, n)() : n);
             }
 
-            private string Literal(bool key)
+            private object Literal(bool key, params Reviver[] revivers)
             {
+                string hint = (key ? DOT : null);
                 int hex, i, uffff;
+                string s;
                 sb = null;
                 ci = 0;
                 if (ch == '"')
@@ -301,7 +315,9 @@ namespace System.Text.Json
                         if (ch == '"')
                         {
                             if (data) read(NEXT);
-                            return ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
+                            s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
+                            Reviver reviver = revivers.FirstOrDefault(r => r(typeof(string), hint, s) != null);
+                            return ((reviver != null) ? reviver(typeof(string), hint, s)() : s);
                         }
                         if (ch == '\\')
                         {
@@ -374,13 +390,17 @@ namespace System.Text.Json
                             else if ((ch > ' ') && (ch != ':'))
                                 throw Error("Bad identifier");
                             else
-                                return ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
+                            {
+                                s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
+                                Reviver reviver = revivers.FirstOrDefault(r => r(typeof(string), hint, s) != null);
+                                return ((reviver != null) ? reviver(typeof(string), hint, s)() : s);
+                            }
                     }
                 }
                 throw Error("Bad string");
             }
 
-            private object Object(Type type, Reviver reviver)
+            private object Object(Type type, params Reviver[] revivers)
             {
                 bool obj = (type == typeof(object));
                 bool isa = ((type.Name[0] == '<') && type.IsSealed);
@@ -410,8 +430,11 @@ namespace System.Text.Json
                     }
                     while (data)
                     {
+                        string s = (Literal(true, revivers) as string);
                         object m;
-                        k = String.Intern(Literal(true));
+                        if (String.IsNullOrEmpty(s))
+                            throw Error("Bad key");
+                        k = String.Intern(s);
                         m = (!obj ? Typed((isa ? (object)cta : type), ti, k) : null);
                         while (data && (ch <= ' ')) // Spaces
                             read(NEXT);
@@ -421,25 +444,28 @@ namespace System.Text.Json
                             if (!isa)
                             {
                                 var p = (System.Reflection.PropertyInfo)m;
-                                var v = CompileTo(p.PropertyType, reviver, true);
-                                p.SetValue(o, ((reviver != null) ? reviver(type, k, v) : v), null);
+                                var v = CompileTo(p.PropertyType, true, revivers);
+                                Reviver reviver = revivers.FirstOrDefault(r => r(type, k, v) != null);
+                                p.SetValue(o, ((reviver != null) ? reviver(type, k, v)() : v), null);
                             }
                             else
                             {
                                 int i = (int)m;
-                                var v = CompileTo(cta[i].ParameterType, reviver, true);
-                                arg[i] = ((reviver != null) ? reviver(type, k, v) : v);
+                                var v = CompileTo(cta[i].ParameterType, true, revivers);
+                                Reviver reviver = revivers.FirstOrDefault(r => r(type, k, v) != null);
+                                arg[i] = ((reviver != null) ? reviver(type, k, v)() : v);
                             }
                         }
                         else
                         {
-                            var v = CompileTo(typeof(object), reviver, true);
+                            var v = CompileTo(typeof(object), true, revivers);
                             if (obj)
                             {
-
+                                Reviver reviver;
                                 if (d.ContainsKey(k))
                                     throw Error(String.Format("Duplicate key \"{0}\"", k));
-                                d[k] = ((reviver != null) ? reviver(type, k, v) : v);
+                                reviver = revivers.FirstOrDefault(r => r(type, k, v) != null);
+                                d[k] = ((reviver != null) ? reviver(type, k, v)() : v);
                             }
                         }
                         while (data && (ch <= ' ')) // Spaces
@@ -457,7 +483,7 @@ namespace System.Text.Json
                 throw Error("Bad object");
             }
 
-            private System.Collections.IEnumerable Array(Type type, Reviver reviver)
+            private System.Collections.IEnumerable Array(Type type, params Reviver[] revivers)
             {
                 var isa = type.IsArray;
                 var ie = (isa || (type.GetInterfaces().Where(i => typeof(System.Collections.IEnumerable).IsAssignableFrom(i)).FirstOrDefault() != null));
@@ -476,7 +502,7 @@ namespace System.Text.Json
                     }
                     while (data)
                     {
-                        l.Add(CompileTo(et, reviver, true));
+                        l.Add(CompileTo(et, true, revivers));
                         while (data && (ch <= ' ')) // Spaces
                             read(NEXT);
                         if (ch == ']')
@@ -492,7 +518,7 @@ namespace System.Text.Json
                 throw Error("Bad array");
             }
 
-            private object CompileTo(Type type, Reviver reviver, bool parse)
+            private object CompileTo(Type type, bool parse, params Reviver[] revivers)
             {
                 type = (type ?? typeof(object));
                 while (data && (ch <= ' ')) // Spaces
@@ -500,48 +526,37 @@ namespace System.Text.Json
                 switch (ch)
                 {
                     case '{':
-                        return Object(type, reviver);
+                        return Object(type, revivers);
                     case '[':
-                        return Array(type, reviver);
+                        return Array(type, revivers);
                     case '"':
-                        return Literal(false);
+                        return Literal(false, revivers);
                     case '-':
-                        return Number();
+                        return Number(revivers);
                     default:
-                        return ((ch >= '0') && (ch <= '9') ? Number() : Word());
+                        return ((ch >= '0') && (ch <= '9') ? Number(revivers) : Word(revivers));
                 }
             }
 
-            internal object CompileTo(Type type, Reviver reviver)
+            internal object CompileTo(Type type, params Reviver[] revivers)
             {
-                var obj = CompileTo(type, reviver, true);
+                var obj = CompileTo(type, true, revivers);
                 while (data && (ch <= ' ')) // Spaces
                     read(NEXT);
                 if (data)
                     throw Error("Unexpected content");
-                return obj;
+                Reviver reviver = revivers.FirstOrDefault(r => r(type, null, obj) != null); 
+                return ((reviver != null) ? reviver(type, null, obj)() : obj);
             }
         }
 
-        private object Parse(object input, ParserSettings settings)
+        private object Parse(object input, ParserSettings settings, Type type, params Reviver[] revivers)
         {
-            return Parse(input, settings, null as Reviver);
+            revivers = (revivers ?? new Reviver[0]);
+            return new Phrase((settings ?? Settings), input).CompileTo(type, revivers);
         }
 
-        private object Parse(object input, ParserSettings settings, Reviver reviver)
-        {
-            return Parse(input, settings, null, reviver);
-        }
-
-        private object Parse(object input, ParserSettings settings, Type type)
-        {
-            return Parse(input, settings, type, null);
-        }
-
-        private object Parse(object input, ParserSettings settings, Type type, Reviver reviver)
-        {
-            return new Phrase((settings ?? Settings), input).CompileTo(type, reviver);
-        }
+        public const string DOT = ".";
 
         public Parser() : this(null) { }
 
@@ -570,7 +585,7 @@ namespace System.Text.Json
         /// <returns>The deserialized object.</returns>
         public object Parse(string text)
         {
-            return Parse(text, null);
+            return Parse(text as object, null, null, null);
         }
 
         /// <summary>
@@ -583,7 +598,7 @@ namespace System.Text.Json
         /// <returns>The deserialized object.</returns>
         public object Parse(string text, ParserSettings settings)
         {
-            return Parse(text as object, settings);
+            return Parse(text as object, settings, null, null);
         }
 
         /// <summary>
@@ -595,7 +610,10 @@ namespace System.Text.Json
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.Stream stream)
         {
-            return Parse(stream, null);
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, null, null, null);
+            }
         }
 
         /// <summary>
@@ -608,7 +626,10 @@ namespace System.Text.Json
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.Stream stream, ParserSettings settings)
         {
-            return Parse(stream, settings, null);
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, settings, null, null);
+            }
         }
 
         /// <summary>
@@ -620,11 +641,11 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public object Parse(System.IO.Stream stream, ParserSettings settings, Reviver reviver)
+        public object Parse(System.IO.Stream stream, ParserSettings settings, params Reviver[] revivers)
         {
             using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
             {
-                return Parse(reader, settings, reviver);
+                return Parse(reader as object, settings, null, revivers);
             }
         }
 
@@ -637,7 +658,7 @@ namespace System.Text.Json
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.StreamReader reader)
         {
-            return Parse(reader, null as Reviver);
+            return Parse(reader as object, null, null, null);
         }
 
         /// <summary>
@@ -648,9 +669,9 @@ namespace System.Text.Json
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public object Parse(System.IO.StreamReader reader, Reviver reviver)
+        public object Parse(System.IO.StreamReader reader, params Reviver[] revivers)
         {
-            return Parse(reader, null, reviver);
+            return Parse(reader as object, null, null, revivers);
         }
 
         /// <summary>
@@ -663,7 +684,7 @@ namespace System.Text.Json
         /// <returns>The deserialized object.</returns>
         public object Parse(System.IO.StreamReader reader, ParserSettings settings)
         {
-            return Parse(reader as object, settings, null as Reviver);
+            return Parse(reader as object, settings, null, null);
         }
 
         /// <summary>
@@ -675,9 +696,9 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public object Parse(System.IO.StreamReader reader, ParserSettings settings, Reviver reviver)
+        public object Parse(System.IO.StreamReader reader, ParserSettings settings, params Reviver[] revivers)
         {
-            return Parse(reader as object, settings, reviver);
+            return Parse(reader as object, settings, null, revivers);
         }
 
         /// <summary>
@@ -686,9 +707,9 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="text">The string of JSON text to parse.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text)
+        public object Parse<T>(string text)
         {
-            return Parse<T>(text, null as Reviver);
+            return Parse(text as object, null, null, null);
         }
 
         /// <summary>
@@ -698,9 +719,9 @@ namespace System.Text.Json
         /// <param name="text">The string of JSON text to parse.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, Reviver reviver)
+        public object Parse<T>(string text, params Reviver[] revivers)
         {
-            return Parse<T>(text, null, reviver);
+            return Parse(text as object, null, null, revivers);
         }
 
         /// <summary>
@@ -710,9 +731,9 @@ namespace System.Text.Json
         /// <param name="text">The string of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, ParserSettings settings)
+        public object Parse<T>(string text, ParserSettings settings)
         {
-            return Parse<T>(text, settings, null);
+            return Parse(text as object, settings, null, null);
         }
 
         /// <summary>
@@ -723,9 +744,9 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, ParserSettings settings, Reviver reviver)
+        public object Parse<T>(string text, ParserSettings settings, params Reviver[] revivers)
         {
-            return (T)Parse(text as object, settings, typeof(T), reviver);
+            return Parse(text as object, settings, typeof(T), revivers);
         }
 
         /// <summary>
@@ -735,9 +756,9 @@ namespace System.Text.Json
         /// <param name="text">The string of JSON text to parse.</param>
         /// <param name="prototype">The prototype for the target type.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, T prototype)
+        public object Parse<T>(string text, T prototype)
         {
-            return Parse<T>(text, prototype, null);
+            return Parse(text as object, null, typeof(T), null);
         }
 
         /// <summary>
@@ -748,9 +769,9 @@ namespace System.Text.Json
         /// <param name="prototype">The prototype for the target type.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, T prototype, Reviver reviver)
+        public object Parse<T>(string text, T prototype, params Reviver[] revivers)
         {
-            return Parse<T>(text, null, prototype, reviver);
+            return Parse(text as object, null, typeof(T), revivers);
         }
 
         /// <summary>
@@ -761,9 +782,9 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="prototype">The prototype for the target type.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, ParserSettings settings, T prototype)
+        public object Parse<T>(string text, ParserSettings settings, T prototype)
         {
-            return Parse<T>(text, settings, prototype, null);
+            return Parse(text as object, settings, typeof(T), null);
         }
 
         /// <summary>
@@ -775,9 +796,9 @@ namespace System.Text.Json
         /// <param name="prototype">The prototype for the target type.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(string text, ParserSettings settings, T prototype, Reviver reviver)
+        public object Parse<T>(string text, ParserSettings settings, T prototype, params Reviver[] revivers)
         {
-            return (T)Parse(text as object, settings, typeof(T), reviver);
+            return Parse(text as object, settings, typeof(T), revivers);
         }
 
         /// <summary>
@@ -786,48 +807,57 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="stream">The stream of JSON text to parse.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream)
-        {
-            return Parse<T>(stream, null as Reviver);
-        }
-
-        /// <summary>
-        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
-        /// (as defined by http://json.org/), assignment-compatible with the specified type.
-        /// </summary>
-        /// <param name="stream">The stream of JSON text to parse.</param>
-        /// <param name="reviver">The reviver to use.</param>
-        /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, Reviver reviver)
-        {
-            return Parse<T>(stream, null, reviver);
-        }
-
-        /// <summary>
-        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
-        /// (as defined by http://json.org/), assignment-compatible with the specified type.
-        /// </summary>
-        /// <param name="stream">The stream of JSON text to parse.</param>
-        /// <param name="settings">The parser settings to use.</param>
-        /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, ParserSettings settings)
-        {
-            return Parse<T>(stream, settings, null);
-        }
-
-        /// <summary>
-        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
-        /// (as defined by http://json.org/), assignment-compatible with the specified type.
-        /// </summary>
-        /// <param name="stream">The stream of JSON text to parse.</param>
-        /// <param name="settings">The parser settings to use.</param>
-        /// <param name="reviver">The reviver to use.</param>
-        /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, ParserSettings settings, Reviver reviver)
+        public object Parse<T>(System.IO.Stream stream)
         {
             using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
             {
-                return (T)Parse(reader as object, settings, typeof(T), reviver);
+                return Parse(reader as object, null, typeof(T), null);
+            }
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public object Parse<T>(System.IO.Stream stream, params Reviver[] revivers)
+        {
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, null, typeof(T), revivers);
+            }
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public object Parse<T>(System.IO.Stream stream, ParserSettings settings)
+        {
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, settings, typeof(T), null);
+            }
+        }
+
+        /// <summary>
+        /// Converts the specified JSON text stream to its .NET equivalent of the JSON "value"
+        /// (as defined by http://json.org/), assignment-compatible with the specified type.
+        /// </summary>
+        /// <param name="stream">The stream of JSON text to parse.</param>
+        /// <param name="settings">The parser settings to use.</param>
+        /// <param name="reviver">The reviver to use.</param>
+        /// <returns>The deserialized object.</returns>
+        public object Parse<T>(System.IO.Stream stream, ParserSettings settings, params Reviver[] revivers)
+        {
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, settings, typeof(T), revivers);
             }
         }
 
@@ -838,9 +868,12 @@ namespace System.Text.Json
         /// <param name="stream">The stream of JSON text to parse.</param>
         /// <param name="prototype">The prototype for the target type.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, T prototype)
+        public object Parse<T>(System.IO.Stream stream, T prototype)
         {
-            return Parse<T>(stream, prototype, null);
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, null, typeof(T), null);
+            }
         }
 
         /// <summary>
@@ -851,9 +884,12 @@ namespace System.Text.Json
         /// <param name="prototype">The prototype for the target type.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, T prototype, Reviver reviver)
+        public object Parse<T>(System.IO.Stream stream, T prototype, params Reviver[] revivers)
         {
-            return Parse<T>(stream, null, prototype, reviver);
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, null, typeof(T), revivers);
+            }
         }
 
         /// <summary>
@@ -864,9 +900,12 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="prototype">The prototype for the target type.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype)
+        public object Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype)
         {
-            return Parse<T>(stream, settings, prototype, null);
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, settings, typeof(T), null);
+            }
         }
 
         /// <summary>
@@ -878,9 +917,12 @@ namespace System.Text.Json
         /// <param name="prototype">The prototype for the target type.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype, Reviver reviver)
+        public object Parse<T>(System.IO.Stream stream, ParserSettings settings, T prototype, params Reviver[] revivers)
         {
-            return Parse<T>(stream, settings, reviver);
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+            {
+                return Parse(reader as object, settings, typeof(T), revivers);
+            }
         }
 
         /// <summary>
@@ -889,9 +931,9 @@ namespace System.Text.Json
         /// </summary>
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.StreamReader reader)
+        public object Parse<T>(System.IO.StreamReader reader)
         {
-            return Parse<T>(reader, null as Reviver);
+            return Parse(reader as object, null, typeof(T), null);
         }
 
         /// <summary>
@@ -901,9 +943,9 @@ namespace System.Text.Json
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.StreamReader reader, Reviver reviver)
+        public object Parse<T>(System.IO.StreamReader reader, params Reviver[] revivers)
         {
-            return Parse<T>(reader, null, reviver);
+            return Parse(reader as object, null, typeof(T), revivers);
         }
 
         /// <summary>
@@ -913,9 +955,9 @@ namespace System.Text.Json
         /// <param name="reader">The reader of JSON text to parse.</param>
         /// <param name="settings">The parser settings to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings)
+        public object Parse<T>(System.IO.StreamReader reader, ParserSettings settings)
         {
-            return Parse<T>(reader, settings, null);
+            return Parse(reader as object, settings, typeof(T), null);
         }
 
         /// <summary>
@@ -926,9 +968,9 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings, Reviver reviver)
+        public object Parse<T>(System.IO.StreamReader reader, ParserSettings settings, params Reviver[] revivers)
         {
-            return (T)Parse(reader as object, settings, typeof(T), reviver);
+            return Parse(reader as object, settings, typeof(T), revivers);
         }
 
         /// <summary>
@@ -939,9 +981,9 @@ namespace System.Text.Json
         /// <param name="prototype">The prototype for the target type.</param>
         /// <returns>The deserialized object.</returns>
         /// <summary>
-        public T Parse<T>(System.IO.StreamReader reader, T prototype)
+        public object Parse<T>(System.IO.StreamReader reader, T prototype)
         {
-            return Parse<T>(reader, prototype, null);
+            return Parse(reader as object, null, typeof(T), null);
         }
 
         /// <summary>
@@ -953,9 +995,9 @@ namespace System.Text.Json
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
         /// <summary>
-        public T Parse<T>(System.IO.StreamReader reader, T prototype, Reviver reviver)
+        public object Parse<T>(System.IO.StreamReader reader, T prototype, params Reviver[] revivers)
         {
-            return Parse<T>(reader, null, prototype, reviver);
+            return Parse(reader as object, null, typeof(T), revivers);
         }
 
         /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
@@ -965,9 +1007,9 @@ namespace System.Text.Json
         /// <param name="settings">The parser settings to use.</param>
         /// <param name="prototype">The prototype for the target type.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype)
+        public object Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype)
         {
-            return Parse<T>(reader, settings, prototype, null);
+            return Parse(reader as object, settings, typeof(T), null);
         }
 
         /// Converts the specified JSON text reader to its .NET equivalent of the JSON "value"
@@ -978,9 +1020,9 @@ namespace System.Text.Json
         /// <param name="prototype">The prototype for the target type.</param>
         /// <param name="reviver">The reviver to use.</param>
         /// <returns>The deserialized object.</returns>
-        public T Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype, Reviver reviver)
+        public object Parse<T>(System.IO.StreamReader reader, ParserSettings settings, T prototype, params Reviver[] revivers)
         {
-            return (T)Parse(reader as object, settings, typeof(T), reviver);
+            return Parse(reader as object, settings, typeof(T), revivers);
         }
 
         public ParserSettings Settings { get; set; }
