@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using System.Text.JSON;
+using System.Text.Json;
 
 namespace TestJSONParser
 {
@@ -61,7 +61,8 @@ namespace TestJSONParser
                             {
                                 title = "",
                                 category = "",
-                                uploaded = "",
+                                uploaded = DateTime.Now,
+                                updated = DateTime.Now,
                                 player =
                                 new
                                 {
@@ -78,7 +79,16 @@ namespace TestJSONParser
             using (System.IO.Stream stream = www.GetResponse().GetResponseStream())
             {
                 // And as easy as that, step #2:
-                var parsed = parser.Parse(stream, YOUTUBE_SCHEMA);
+                var parsed = parser.Parse
+                    (
+                        stream,
+                        YOUTUBE_SCHEMA,
+                        (type, key, value) =>
+                            ((type == YOUTUBE_SCHEMA.data.items[0].GetType()) && ((key == "updated") || (key == "uploaded"))) ?
+                            DateTime.Parse((string)value)
+                            :
+                            value
+                    );
 
                 Console.WriteLine();
                 foreach (var item in parsed.data.items)
@@ -148,10 +158,10 @@ namespace TestJSONParser
             Console.WriteLine();
             foreach (object item in items)
             {
-                var father = item.JSONObject();
+                var father = item.JsonObject();
                 var name = (string)father["name"];
-                var sons = father["sons"].JSONArray();
-                var daughters = father["daughters"].JSONArray();
+                var sons = father["sons"].JsonArray();
+                var daughters = father["daughters"].JsonArray();
                 Console.WriteLine("{0}", name);
                 Console.WriteLine("\thas {0} son(s), and {1} daughter(s)", sons.Count, daughters.Count);
                 Console.WriteLine();
