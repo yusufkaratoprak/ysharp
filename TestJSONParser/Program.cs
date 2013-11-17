@@ -13,10 +13,10 @@ namespace TestJSONParser
         // Note: fathers.json.txt was generated using:
         // http://experiments.mennovanslooten.nl/2010/mockjson/tryit.html
         // avg: file size ~ exec time (on Lenovo Win7 PC, i5, 2.50GHz, 6Gb)
-        const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 0.8sec
+        const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 1sec
         const string SMALL_TEST_FILE_PATH = @"..\..\small.json.txt"; // avg: 4kb ~ 1ms
 #if WITH_HUGE_TEST
-        const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 16sec
+        const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
 #endif
         static Parser parser = new Parser (new ParserSettings { LiteralsBuffer = 1024 });
 
@@ -38,9 +38,9 @@ namespace TestJSONParser
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start1).TotalMilliseconds);
             Console.WriteLine();*/
 
-            Console.WriteLine("\tParsed by {0} in...", jsonParser.GetType().FullName);
+            Console.WriteLine("\tParsed by {0} in...", parser.GetType().FullName);
             DateTime start2 = DateTime.Now;
-            obj = jsonParser.Parse(json);
+            obj = parser.Parse(json);
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
             Console.WriteLine("Press a key...");
             Console.WriteLine();
@@ -50,54 +50,93 @@ namespace TestJSONParser
 
         static void Top10Youtube2013Test()
         {
-            // Yup, as easy as this, step #1:
-            var YOUTUBE_SCHEMA = new
+            var JSON_DATE =
+                new
                 {
-                    data = new
-                    {
-                        items = new[]
-                        {
-                            new
-                            {
-                                title = "",
-                                category = "",
-                                uploaded = DateTime.Now,
-                                updated = DateTime.Now,
-                                player =
-                                new
-                                {
-                                    @default = ""
-                                }
-                            }
-                        }
-                    }
+                    Year = 0,
+                    Month = 0,
+                    Day = 0
                 };
+
+            Reviver ToDate =
+                (type, key, value) =>
+                    (type == typeof(double)) ?
+                        (Func<object>)(() => Convert.ToInt32(value)) :
+                        ((type == JSON_DATE.GetType()) && (key == null)) ?
+                            (Func<object>)
+                            (
+                                () => new DateTime
+                                (
+                                    value.As(JSON_DATE).Year,
+                                    value.As(JSON_DATE).Month,
+                                    value.As(JSON_DATE).Day
+                                )
+                            ) :
+                            null;
+
+            DateTime dateTime =
+                JSON_DATE.
+                FromJson
+                (
+                    @" { ""Year"": 1970, ""Month"": 5, ""Day"": 10 }",
+                    ToDate
+                ).
+                As<DateTime>();
+
+            Console.WriteLine(dateTime);
+            Console.WriteLine();
 
             Console.WriteLine("Top 10 Youtube 2013 Test - JSON parse...");
             Console.WriteLine();
             System.Net.WebRequest www = System.Net.WebRequest.Create("https://gdata.youtube.com/feeds/api/videos?q=2013&max-results=10&v=2&alt=jsonc");
             using (System.IO.Stream stream = www.GetResponse().GetResponseStream())
             {
+                // Yup, as simple as this, step #1:
+                var YOUTUBE_SCHEMA = new
+                {
+                    Data = new
+                    {
+                        Items = new[]
+                        {
+                            new
+                            {
+                                Title = "",
+                                Category = "",
+                                Uploaded = DateTime.Now,
+                                Updated = DateTime.Now,
+                                Player = new
+                                {
+                                    @Default = ""
+                                }
+                            }
+                        }
+                    }
+                };
+
                 // And as easy as that, step #2:
                 var parsed = parser.Parse
                     (
                         stream,
                         YOUTUBE_SCHEMA,
                         (type, key, value) =>
-                            ((type == YOUTUBE_SCHEMA.data.items[0].GetType()) && ((key == "updated") || (key == "uploaded"))) ?
-                            DateTime.Parse((string)value)
-                            :
-                            value
-                    );
+                            // maps: "data" => "Data", "items" => "Items", "title" => "Title", ...etc
+                            (key == Parser.DOT) ?
+                                (Func<object>)(() => String.Concat((char)(value.ToString()[0] - 32), value.ToString().Substring(1))) :
+                                null,
+                        (type, key, value) =>
+                            ((type == YOUTUBE_SCHEMA.Data.Items[0].GetType()) && (key == "Uploaded") || (key == "Updated")) ?
+                                (Func<object>)(() => DateTime.Parse((string)value)) :
+                                null
+                    ).As(YOUTUBE_SCHEMA);
 
                 Console.WriteLine();
-                foreach (var item in parsed.data.items)
+                foreach (var item in parsed.Data.Items)
                 {
-                    var title = item.title;
-                    var category = item.category;
-                    var uploaded = item.uploaded;
-                    var player = item.player;
-                    var link = player.@default;
+                    var title = item.Title;
+                    var category = item.Category;
+                    var uploaded = item.Uploaded;
+                    var player = item.Player;
+                    var link = player.@Default;
                     Console.WriteLine("\t\"{0}\" (category: {1}, uploaded: {2})", title, category, uploaded);
                     Console.WriteLine("\t\tURL: {0}", link);
                     Console.WriteLine();
@@ -110,10 +149,10 @@ namespace TestJSONParser
 
         static void Main(string[] args)
         {
+            Top10Youtube2013Test();
 #if WITH_HUGE_TEST
             HugeTest();
 #endif
-            Top10Youtube2013Test();
 
             string small = System.IO.File.ReadAllText(SMALL_TEST_FILE_PATH);
             Console.WriteLine("Small Test - JSON parse... {0} bytes ({1} kb)", small.Length, ((decimal)small.Length / (decimal)1024));
