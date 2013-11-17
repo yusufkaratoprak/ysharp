@@ -293,14 +293,14 @@ namespace System.Text.Json
                         if (data) read('s');
                         if (data) read('e');
                         mapped = ReviveBy(revivers, target, typeof(bool), null, false);
-                        return ((mapped != null) ? mapped() : true);
+                        return ((mapped != null) ? mapped() : false);
                     case 'n':
                         if (data) read('n');
                         if (data) read('u');
                         if (data) read('l');
                         if (data) read('l');
                         mapped = ReviveBy(revivers, target, typeof(object), null, null);
-                        return ((mapped != null) ? mapped() : true);
+                        return ((mapped != null) ? mapped() : null);
                 }
                 throw Error(String.Format("Unexpected '{0}'", ch));
             }
