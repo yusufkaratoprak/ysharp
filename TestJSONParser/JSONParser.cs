@@ -264,9 +264,19 @@ namespace System.Text.Json
                     return hash[key];
             }
 
+            private Func<object> ReviveBy(Reviver[] revivers, object o, Type t, object k, object v)
+            {
+                Func<object> mapper = null;
+                if (revivers != null)
+                    for (int i = 0; i < revivers.Length; i++)
+                        if ((mapper = revivers[i](o, t, k, v)) != null)
+                            break;
+                return mapper;
+            }
+
             private object Word(Type target, params Reviver[] revivers)
             {
-                Reviver reviver;
+                Func<object> mapped;
                 switch (ch)
                 {
                     case 't':
@@ -274,23 +284,23 @@ namespace System.Text.Json
                         if (data) read('r');
                         if (data) read('u');
                         if (data) read('e');
-                        reviver = revivers.FirstOrDefault(r => r(target, typeof(bool), null, true) != null);
-                        return ((reviver != null) ? reviver(target, typeof(bool), null, true)() : true);
+                        mapped = ReviveBy(revivers, target, typeof(bool), null, true);
+                        return ((mapped != null) ? mapped() : true);
                     case 'f':
                         if (data) read('f');
                         if (data) read('a');
                         if (data) read('l');
                         if (data) read('s');
                         if (data) read('e');
-                        reviver = revivers.FirstOrDefault(r => r(target, typeof(bool), null, false) != null);
-                        return ((reviver != null) ? reviver(target, typeof(bool), null, false)() : false);
+                        mapped = ReviveBy(revivers, target, typeof(bool), null, false);
+                        return ((mapped != null) ? mapped() : true);
                     case 'n':
                         if (data) read('n');
                         if (data) read('u');
                         if (data) read('l');
                         if (data) read('l');
-                        reviver = revivers.FirstOrDefault(r => r(target, typeof(object), null, null) != null);
-                        return ((reviver != null) ? reviver(target, typeof(object), null, null)() : null);
+                        mapped = ReviveBy(revivers, target, typeof(object), null, null);
+                        return ((mapped != null) ? mapped() : true);
                 }
                 throw Error(String.Format("Unexpected '{0}'", ch));
             }
@@ -332,8 +342,8 @@ namespace System.Text.Json
                     }
                 }
                 n = double.Parse((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                Reviver reviver = revivers.FirstOrDefault(r => r(target, typeof(double), null, n) != null);
-                return ((reviver != null) ? reviver(target, typeof(double), null, n)() : n);
+                var mapped = ReviveBy(revivers, target, typeof(double), null, n);
+                return ((mapped != null) ? mapped() : n);
             }
 
             private object Literal(Type target, bool key, params Reviver[] revivers)
@@ -351,8 +361,8 @@ namespace System.Text.Json
                         {
                             if (data) read(NEXT);
                             s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                            Reviver reviver = revivers.FirstOrDefault(r => r(target, typeof(string), hint, s) != null);
-                            return ((reviver != null) ? reviver(target, typeof(string), hint, s)() : s);
+                            var mapped = ReviveBy(revivers, target, typeof(string), hint, s);
+                            return ((mapped != null) ? mapped() : s);
                         }
                         if (ch == '\\')
                         {
@@ -427,8 +437,8 @@ namespace System.Text.Json
                             else
                             {
                                 s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                                Reviver reviver = revivers.FirstOrDefault(r => r(target, typeof(string), hint, s) != null);
-                                return ((reviver != null) ? reviver(target, typeof(string), hint, s)() : s);
+                                var mapped = ReviveBy(revivers, target, typeof(string), hint, s);
+                                return ((mapped != null) ? mapped() : s);
                             }
                     }
                 }
@@ -480,16 +490,16 @@ namespace System.Text.Json
                                 var p = (System.Reflection.PropertyInfo)m;
                                 var t = p.PropertyType;
                                 var v = CompileTo(t, true, revivers);
-                                Reviver reviver = revivers.FirstOrDefault(r => r(type, t, k, v) != null);
-                                p.SetValue(o, ((reviver != null) ? reviver(type, t, k, v)() : v), null);
+                                var mapped = ReviveBy(revivers, type, t, k, v);
+                                p.SetValue(o, ((mapped != null) ? mapped() : v), null);
                             }
                             else
                             {
                                 int i = (int)m;
                                 var t = cta[i].ParameterType;
                                 var v = CompileTo(t, true, revivers);
-                                Reviver reviver = revivers.FirstOrDefault(r => r(type, t, k, v) != null);
-                                arg[i] = ((reviver != null) ? reviver(type, t, k, v)() : v);
+                                var mapped = ReviveBy(revivers, type, t, k, v);
+                                arg[i] = ((mapped != null) ? mapped() : v);
                             }
                         }
                         else
@@ -497,11 +507,10 @@ namespace System.Text.Json
                             var v = CompileTo(typeof(object), true, revivers);
                             if (obj)
                             {
-                                Reviver reviver;
                                 if (d.Contains(h))
                                     throw Error(String.Format("Duplicate key \"{0}\"", h));
-                                reviver = revivers.FirstOrDefault(r => r(o, typeof(object), h, v) != null);
-                                v = ((reviver != null) ? reviver(o, typeof(object), h, v)() : v);
+                                var mapped = ReviveBy(revivers, o, typeof(object), h, v);
+                                v = ((mapped != null) ? mapped() : v);
                                 if (v != d)
                                     d[h] = v;
                             }
