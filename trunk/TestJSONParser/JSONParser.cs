@@ -17,16 +17,6 @@ namespace System.Text.Json
             return (T)obj;
         }
 
-        public static IDictionary<string, object> JsonObject(this object obj)
-        {
-            return (IDictionary<string, object>)obj;
-        }
-
-        public static IList<object> JsonArray(this object obj)
-        {
-            return (IList<object>)obj;
-        }
-
         public static object FromJson(this object obj, string text)
         {
             return obj.FromJson<object>(text);
@@ -57,9 +47,14 @@ namespace System.Text.Json
             return obj.FromJson<object>(reader, revivers);
         }
 
-        public static object FromJson<T>(this T prototype, string text, Parsing value)
+        public static object FromJson<T>(this T prototype, string text, Parse value)
         {
             return new Parser().Parse(text, prototype);
+        }
+
+        public static T As<T>(this Parse value, string text)
+        {
+            return default(T).FromJson(text);
         }
 
         public static T FromJson<T>(this T prototype, string text)
@@ -67,9 +62,14 @@ namespace System.Text.Json
             return (T)new Parser().Parse(text, prototype);
         }
 
-        public static object FromJson<T>(this T prototype, string text, Parsing value, params Reviver[] revivers)
+        public static object FromJson<T>(this T prototype, string text, Parse value, params Reviver[] revivers)
         {
             return new Parser().Parse(text, prototype, revivers);
+        }
+
+        public static T As<T>(this Parse value, string text, params Reviver[] revivers)
+        {
+            return default(T).FromJson(text, revivers);
         }
 
         public static T FromJson<T>(this T prototype, string text, params Reviver[] revivers)
@@ -77,9 +77,14 @@ namespace System.Text.Json
             return (T)new Parser().Parse(text, prototype, revivers);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.Stream stream, Parsing value)
+        public static object FromJson<T>(this T prototype, System.IO.Stream stream, Parse value)
         {
             return new Parser().Parse(stream, prototype);
+        }
+
+        public static T As<T>(this Parse value, System.IO.Stream stream)
+        {
+            return default(T).FromJson(stream);
         }
 
         public static T FromJson<T>(this T prototype, System.IO.Stream stream)
@@ -87,9 +92,14 @@ namespace System.Text.Json
             return (T)new Parser().Parse(stream, prototype);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.Stream stream, Parsing value, params Reviver[] revivers)
+        public static object FromJson<T>(this T prototype, System.IO.Stream stream, Parse value, params Reviver[] revivers)
         {
             return new Parser().Parse(stream, prototype, revivers);
+        }
+
+        public static T As<T>(this Parse value, System.IO.Stream stream, params Reviver[] revivers)
+        {
+            return default(T).FromJson(stream, revivers);
         }
 
         public static T FromJson<T>(this T prototype, System.IO.Stream stream, params Reviver[] revivers)
@@ -97,9 +107,14 @@ namespace System.Text.Json
             return (T)new Parser().Parse(stream, prototype, revivers);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, Parsing value)
+        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, Parse value)
         {
             return new Parser().Parse(reader, prototype);
+        }
+
+        public static T As<T>(this Parse value, System.IO.StreamReader reader)
+        {
+            return default(T).FromJson(reader);
         }
 
         public static T FromJson<T>(this T prototype, System.IO.StreamReader reader)
@@ -107,18 +122,33 @@ namespace System.Text.Json
             return (T)new Parser().Parse(reader, prototype);
         }
 
-        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, Parsing value, params Reviver[] revivers)
+        public static object FromJson<T>(this T prototype, System.IO.StreamReader reader, Parse value, params Reviver[] revivers)
         {
             return new Parser().Parse(reader, prototype, revivers);
+        }
+
+        public static T As<T>(this Parse value, System.IO.StreamReader reader, params Reviver[] revivers)
+        {
+            return default(T).FromJson(reader, revivers);
         }
 
         public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, params Reviver[] revivers)
         {
             return (T)new Parser().Parse(reader, prototype, revivers);
         }
+
+        public static IDictionary<string, object> JsonObject(this object obj)
+        {
+            return (IDictionary<string, object>)obj;
+        }
+
+        public static IList<object> JsonArray(this object obj)
+        {
+            return (IList<object>)obj;
+        }
     }
 
-    public delegate Func<object> Reviver(object target, Type type, object key, object value);
+    public delegate Func<object> Reviver(Type target, Type type, object key, object value);
 
     public class ParserSettings
     {
@@ -126,7 +156,7 @@ namespace System.Text.Json
         public int LiteralsBuffer { get; set; }
     }
 
-    public enum Parsing
+    public enum Parse
     {
         Value
     }
@@ -200,7 +230,7 @@ namespace System.Text.Json
 
             private Exception Error(string message)
             {
-                return new Exception(String.Format("{0} at offset {1}", message, at));
+                return new Exception(String.Format("{0} at offset {1} ('{2}')", message, at, ch));
             }
 
             private bool ReadFromStream(char c)
@@ -264,12 +294,12 @@ namespace System.Text.Json
                     return hash[key];
             }
 
-            private Func<object> Map(Reviver[] revivers, object o, Type t, object k, object v)
+            private Func<object> Map(Reviver[] revivers, Type t, Type m, object k, object v)
             {
                 Func<object> mapper = null;
                 if (revivers != null)
                     for (int i = 0; i < revivers.Length; i++)
-                        if ((mapper = revivers[i](o, t, k, v)) != null)
+                        if ((mapper = revivers[i](t, m, k, v)) != null)
                             break;
                 return mapper;
             }
@@ -348,7 +378,6 @@ namespace System.Text.Json
 
             private object Literal(Type target, bool key, params Reviver[] revivers)
             {
-                string hint = (key ? DOT : null);
                 int hex, i, uffff;
                 string s;
                 sb = null;
@@ -361,7 +390,7 @@ namespace System.Text.Json
                         {
                             if (data) read(NEXT);
                             s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                            var mapped = Map(revivers, target, typeof(string), hint, s);
+                            var mapped = Map(revivers, target, typeof(string), (key ? (object)key : null), s);
                             return ((mapped != null) ? mapped() : s);
                         }
                         if (ch == '\\')
@@ -437,7 +466,7 @@ namespace System.Text.Json
                             else
                             {
                                 s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-                                var mapped = Map(revivers, target, typeof(string), hint, s);
+                                var mapped = Map(revivers, target, typeof(string), (key ? (object)key : null), s);
                                 return ((mapped != null) ? mapped() : s);
                             }
                     }
@@ -445,26 +474,48 @@ namespace System.Text.Json
                 throw Error("Bad string");
             }
 
+            private bool Inherits(Type given, Type generic)
+            {
+                var itfs = given.GetInterfaces();
+                foreach (var it in itfs)
+                    if (it.IsGenericType && it.GetGenericTypeDefinition() == generic)
+                        return true;
+                if (given.IsGenericType && given.GetGenericTypeDefinition() == generic)
+                    return true;
+                if (given.BaseType == null)
+                    return false;
+                return Inherits(given.BaseType, generic);
+            }
+
             private object Object(Type type, params Reviver[] revivers)
             {
-                bool obj = ((type == typeof(object)) || typeof(System.Collections.IDictionary).IsAssignableFrom(type));
-                bool isa = ((type.Name[0] == '<') && type.IsSealed);
-                var ctr = (!obj ? (!isa ? type.GetConstructors().OrderBy(c => c.GetParameters().Length).First() : type.GetConstructors()[0]) : null);
-                var cta = (!obj ? ctr.GetParameters() : null);
-                var arg = (!obj ? new object[cta.Length] : null);
+                Func<Type, bool> dit = (t) => (t.IsGenericType && (t.GetGenericTypeDefinition() == typeof(IDictionary<,>)));
+                bool obj = ((type = (type ?? typeof(object))) == typeof(object));
+                bool ish = (!obj && typeof(System.Collections.IDictionary).IsAssignableFrom(type));
+                Type did = (!obj && !ish && type.IsGenericType && Inherits(type, typeof(IDictionary<,>)) ? type : null);
+                Type dkt = ((did != null) ? did.GetGenericArguments()[0] : null);
+                Type dvt = ((did != null) ? did.GetGenericArguments()[1] : null);
+                bool isd = (ish || (did != null));
+                bool dyn = (obj || isd);
+                bool isa = (!dyn && (type.Name[0] == '<') && type.IsSealed);
+                var ctr = (!dyn ? (!isa ? type.GetConstructors().OrderBy(c => c.GetParameters().Length).First() : type.GetConstructors()[0]) : null);
+                var cta = (!dyn ? ctr.GetParameters() : null);
+                var arg = (!dyn ? new object[cta.Length] : null);
                 object o = null;
+                dkt = (ish ? typeof(object) : dkt);
+                dvt = (ish ? typeof(object) : dvt);
                 string k;
                 if (ch == '{')
                 {
-                    var d = (obj ? ((type != typeof(object)) ? (System.Collections.IDictionary)Activator.CreateInstance(type, null) : new Dictionary<string, object>()) : null);
-                    if (!obj)
+                    var d = (dyn ? ((did != null) ? (System.Collections.IDictionary)Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(dkt, dvt), null) : (obj ? (System.Collections.IDictionary)new Dictionary<string, object>() : new System.Collections.Hashtable())) : null);
+                    if (!dyn)
                     {
                         if (!isa)
                             o = Activator.CreateInstance(type, arg);
                     }
                     else
                         o = d;
-                    var ti = (!obj ? Known(type) : null);
+                    var ti = (!dyn ? Known(type) : null);
                     if (data) read('{');
                     while (data && (ch <= ' ')) // Spaces
                         read(NEXT);
@@ -476,14 +527,14 @@ namespace System.Text.Json
                     while (data)
                     {
                         object h = Literal(type, true, revivers), m;
-                        if (h == null)
+                        if (!dyn && ((h as string) == null))
                             throw Error("Bad key");
-                        k = (!obj ? String.Intern(h.ToString()) : null);
-                        m = (!obj ? Typed((isa ? (object)cta : type), ti, k) : null);
+                        k = (!dyn ? String.Intern((string)h) : null);
+                        m = (!dyn ? Typed((isa ? (object)cta : type), ti, k) : null);
                         while (data && (ch <= ' ')) // Spaces
                             read(NEXT);
                         if (data) read(':');
-                        if ((m != null) && !obj)
+                        if (m != null)
                         {
                             if (!isa)
                             {
@@ -504,12 +555,14 @@ namespace System.Text.Json
                         }
                         else
                         {
-                            var v = CompileTo(typeof(object), true, revivers);
-                            if (obj)
+                            var v = CompileTo(dvt, true, revivers);
+                            if (dyn)
                             {
+                                var mapped = Map(revivers, dkt, dvt, true, h);
+                                h = ((mapped != null) ? mapped() : h);
                                 if (d.Contains(h))
                                     throw Error(String.Format("Duplicate key \"{0}\"", h));
-                                var mapped = Map(revivers, o, typeof(object), h, v);
+                                mapped = Map(revivers, dkt, dvt, h, v);
                                 v = ((mapped != null) ? mapped() : v);
                                 if (v != d)
                                     d[h] = v;
@@ -602,8 +655,6 @@ namespace System.Text.Json
             revivers = (revivers ?? new Reviver[0]);
             return new Phrase((settings ?? Settings), input).CompileTo(type, revivers);
         }
-
-        public const string DOT = ".";
 
         public Parser() : this(null) { }
 
