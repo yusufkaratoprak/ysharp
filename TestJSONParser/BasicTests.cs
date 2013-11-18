@@ -15,42 +15,94 @@ namespace TestJSONParser
 #if WITH_HUGE_TEST
         const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
 #endif
+        public static void MostBasicTest()
+        {
+            Console.Clear();
+            Console.WriteLine("Most Basic Tests");
+            Console.WriteLine();
+
+            string test0;
+            try
+            {
+                test0 = "".FromJson("");
+            }
+            catch (Exception ex)
+            {
+                test0 = ex.Message;
+            }
+            var test1 = default(double).FromJson("123.456");
+            var test2 = default(double).FromJson("789");
+            var test3 = "".FromJson("\"\"");
+            var test4 = (null as object[]).FromJson("[]");
+            var test5 = (null as double[]).FromJson("[1,2,3]");
+            var test6 = (null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
+            var test7 = new { Id = "" }.FromJson("{\"Id\":\"Something\"}");
+            var test8 = new[] { new { Id = .0 } }.FromJson("[{\"Id\":1}, {\"Id\":2}]");
+            var test9 = new { ZipCode = 75015 }.
+                FromJson
+                (
+                    " { ZipCode: 75015 } ",
+                    new ParserSettings { AcceptIdentifiers = true },
+                    (target, type, key, value) =>
+                        ((target == typeof(int)) && !(key is bool)) ?
+                        (Func<object>)
+                        (() => Convert.ToInt32(value)) :
+                        null
+                );
+
+            System.Diagnostics.Debug.Assert(!String.IsNullOrEmpty(test0));
+            System.Diagnostics.Debug.Assert(test1 == 123.456);
+            System.Diagnostics.Debug.Assert(test2 == 789.0);
+            System.Diagnostics.Debug.Assert(test3 == "");
+            System.Diagnostics.Debug.Assert(test4.Length == 0);
+            System.Diagnostics.Debug.Assert(test5[1] == 2.0);
+            System.Diagnostics.Debug.Assert((string)test6.JsonObject()["First"] == "John");
+            System.Diagnostics.Debug.Assert((string)test6.JsonObject()["Last"] == "Smith");
+            System.Diagnostics.Debug.Assert(test7.Id == "Something");
+            System.Diagnostics.Debug.Assert(test8[1].Id == 2.0);
+            System.Diagnostics.Debug.Assert(test9.ZipCode == 75015);
+            Console.WriteLine();
+            Console.WriteLine("Passed - Press a key...");
+            Console.WriteLine();
+            Console.ReadKey();
+        }
+
         public static void DateTimeTest()
         {
+            Console.Clear();
             Console.WriteLine("Basic Tests - DateTime");
             Console.WriteLine();
 
-            var JSON_DATE = new
+            var DATE_JSON = new
             {
                 Year = 0,
                 Month = 0,
                 Day = 0
             };
 
-            Reviver ToDate =
+            Reviver ToDateTime =
                 (target, type, key, value) =>
-                    ((target == typeof(int)) && (key == null)) ?
+                    ((target == typeof(int)) && !(key is bool)) ?
                         (Func<object>)(() => Convert.ToInt32(value)) :
-                        ((target == JSON_DATE.GetType()) && (key == null)) ?
+                        ((target == DATE_JSON.GetType()) && (key == null)) ?
                             (Func<object>)
                             (
                                 () => new DateTime
                                 (
-                                    value.As(JSON_DATE).Year,
-                                    value.As(JSON_DATE).Month,
-                                    value.As(JSON_DATE).Day
+                                    value.As(DATE_JSON).Year,
+                                    value.As(DATE_JSON).Month,
+                                    value.As(DATE_JSON).Day
                                 )
                             ) :
                             null;
 
-            var dateTime =
-                JSON_DATE.
+            var dateTime = DATE_JSON.
                 FromJson
                 (
+                    default(DateTime),
                     @" { ""Year"": 1970, ""Month"": 5, ""Day"": 10 }",
-                    Parse.Value,
-                    ToDate
-                ).As<DateTime>();
+                    ToDateTime
+                );
 
             Console.WriteLine(dateTime);
             Console.WriteLine();
@@ -68,23 +120,26 @@ namespace TestJSONParser
         {
             public string Name { get; set; }
             public IList<Computer> Computers { get; set; }
+
+            internal static readonly Reviver CodesIntegerKey =
+                (target, type, key, value) =>
+                    ((target == typeof(int)) && (key is bool)) ?
+                    (Func<object>)
+                    (() => Convert.ToInt32(value)) :
+                    null;
             public IDictionary<int, string> Codes { get; set; }
+
             public IDictionary<string, Address> Addresses { get; set; }
         }
 
-        static Reviver integerKey =
-            (target, type, key, value) =>
-                ((target == typeof(int)) && (key is bool)) ?
-                (Func<object>)
-                (() => Convert.ToInt32(value)) :
-                null;
 
         public static void PersonTest()
         {
+            Console.Clear();
             Console.WriteLine("Basic Tests - Person");
             Console.WriteLine();
-            var person = Parse.Value.
-                As<Person>
+            var person = (null as Person).
+                FromJson
                 (
                     @"
                         {
@@ -105,7 +160,7 @@ namespace TestJSONParser
                                 { ""Type"": ""Phone"" }
                             ]
                         }   ",
-                    integerKey
+                    Person.CodesIntegerKey
                 );
             System.Diagnostics.Debug.Assert(person.Name == "Peter");
             System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
@@ -121,10 +176,11 @@ namespace TestJSONParser
 
         public static void PersonAnonTest()
         {
+            Console.Clear();
             Console.WriteLine("Basic Tests - Person (anonymous types)");
             Console.WriteLine();
 
-            var PERSON = new
+            var PERSON_JSON = new
             {
                 Name = "",
                 Computers = new[]
@@ -144,29 +200,30 @@ namespace TestJSONParser
                 Codes = (null as IDictionary<int, string>)
             };
 
-            var person = PERSON.
+            var person = PERSON_JSON.
                 FromJson
                 (
                     @"
                         {
-                            ""Addresses"": [
+                            Addresses : [
                                 { ""City"": ""Paris"" },
                                 { ""City"": ""Geneva"" }
                             ],
-                            ""Name"": ""Paul"",
-                            ""Codes"": {
+                            ""Name"" : ""Paul"",
+                            Codes   : {
                                 ""1"": ""one"",
                                 ""2"": ""two"",
                                 ""3"": ""three"",
                                 ""4"": ""four"",
                                 ""5"": ""five""
                             },
-                            ""Computers"": [
-                                { ""Type"": ""Laptop"" },
-                                { ""Type"": ""Phone"" }
+                            Computers: [
+                                { Type : ""Laptop"" },
+                                { Type : ""Phone"" }
                             ]
                         }   ",
-                    integerKey
+                    new ParserSettings { AcceptIdentifiers = true },
+                    Person.CodesIntegerKey
                 );
             System.Diagnostics.Debug.Assert(person.Name == "Paul");
             System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
@@ -182,13 +239,14 @@ namespace TestJSONParser
 
         public static void Top10Youtube2013Test()
         {
+            Console.Clear();
             Console.WriteLine("Top 10 Youtube 2013 Test - JSON parse...");
             Console.WriteLine();
             System.Net.WebRequest www = System.Net.WebRequest.Create("https://gdata.youtube.com/feeds/api/videos?q=2013&max-results=10&v=2&alt=jsonc");
             using (System.IO.Stream stream = www.GetResponse().GetResponseStream())
             {
                 // Yup, as simple as this, step #1:
-                var YOUTUBE_SCHEMA = new
+                var YOUTUBE_JSON = new
                 {
                     Data = new
                     {
@@ -210,7 +268,7 @@ namespace TestJSONParser
                 };
 
                 // And as easy as that, step #2:
-                var parsed = YOUTUBE_SCHEMA.
+                var parsed = YOUTUBE_JSON.
                     FromJson
                     (
                         stream,
@@ -220,7 +278,7 @@ namespace TestJSONParser
                                 (Func<object>)(() => String.Concat((char)(value.ToString()[0] - 32), value.ToString().Substring(1))) :
                                 null,
                         (target, type, key, value) =>
-                            ((target == typeof(DateTime)) && (key == null)) ?
+                            ((type == typeof(DateTime)) && !(key is bool)) ?
                                 (Func<object>)(() => DateTime.Parse((string)value)) :
                                 null
                     );
@@ -251,13 +309,14 @@ namespace TestJSONParser
         // huge.json.txt... avg: 180mb ~ 20sec
         public static void SmallTest()
         {
+            Console.Clear();
             string small = System.IO.File.ReadAllText(SMALL_TEST_FILE_PATH);
             Console.WriteLine("Small Test - JSON parse... {0} bytes ({1} kb)", small.Length, ((decimal)small.Length / (decimal)1024));
             Console.WriteLine();
 
             Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
             DateTime start = DateTime.Now;
-            var obj = Parse.Value.FromJson<object>(small);
+            var obj = ((object)null).FromJson(small);
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
             Console.WriteLine();
             Console.WriteLine("Press a key...");
@@ -268,6 +327,7 @@ namespace TestJSONParser
         public static void HugeTest()
         {
 #if WITH_HUGE_TEST
+            Console.Clear();
             string json = System.IO.File.ReadAllText(HUGE_TEST_FILE_PATH);
             object obj;
             Console.WriteLine("Huge Test - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
@@ -285,7 +345,7 @@ namespace TestJSONParser
 
             Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
             DateTime start2 = DateTime.Now;
-            obj = Parse.Value.FromJson<object>(json);
+            obj = (null as object).FromJson<object>(json);
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
             Console.WriteLine();
             Console.WriteLine("Press a key...");
@@ -296,6 +356,7 @@ namespace TestJSONParser
 
         public static void FathersTest()
         {
+            Console.Clear();
             string json = System.IO.File.ReadAllText(FATHERS_TEST_FILE_PATH);
             Console.WriteLine("Fathers Test - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
             Console.WriteLine();
@@ -312,7 +373,7 @@ namespace TestJSONParser
 
             Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
             DateTime start2 = DateTime.Now;
-            var myObj = Parse.Value.FromJson<object>(json);
+            var myObj = ((object)null).FromJson(json);
             Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
             Console.WriteLine();
 
