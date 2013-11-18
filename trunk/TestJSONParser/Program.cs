@@ -9,6 +9,7 @@ namespace TestJSONParser
     {
         static void Main(string[] args)
         {
+            BasicTests.MostBasicTest();
             BasicTests.DateTimeTest();
             BasicTests.PersonTest();
             BasicTests.PersonAnonTest();
