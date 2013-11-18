@@ -21,24 +21,27 @@ namespace TestJSONParser
 			Console.WriteLine("Most Basic Tests");
 			Console.WriteLine();
 
-			string test0;
+			string testerr;
 			try
 			{
-				test0 = "".FromJson("");
+				testerr = "".FromJson("");
 			}
 			catch (Exception ex)
 			{
-				test0 = ex.Message;
+				testerr = ex.Message;
 			}
-			var test1 = default(double).FromJson("123.456");
-			var test2 = default(double).FromJson("789");
-			var test3 = "".FromJson("\"\"");
-			var test4 = (null as object[]).FromJson("[]");
-			var test5 = (null as double[]).FromJson("[1,2,3]");
-			var test6 = (null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
-			var test7 = new { Id = "" }.FromJson("{\"Id\":\"Something\"}");
-			var test8 = new[] { new { Id = .0 } }.FromJson("[{\"Id\":1}, {\"Id\":2}]");
-			var test9 = new { ZipCode = 75015 }.
+			var test0 = "".FromJson("\"\"");
+			var test1 = "".FromJson("\" \"");
+			var test2 = "".FromJson("\"\\ta\"");
+			var test3 = default(double).FromJson("123.456");
+			var test4 = default(double).FromJson("789");
+			var test5 = "".FromJson("\"\"");
+			var test6 = (null as object[]).FromJson("[]");
+			var test7 = (null as double[]).FromJson("[1,2,3]");
+			var test8 = (null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
+			var test9 = new { Id = "" }.FromJson("{\"Id\":\"Something\"}");
+			var test10 = new[] { new { Id = .0 } }.FromJson("[{\"Id\":1}, {\"Id\":2}]");
+			var test11 = new { ZipCode = 75015 }.
 				FromJson
 				(
 					" { ZipCode: 75015 } ",
@@ -50,17 +53,20 @@ namespace TestJSONParser
 						null
 				);
 
-			System.Diagnostics.Debug.Assert(!String.IsNullOrEmpty(test0));
-			System.Diagnostics.Debug.Assert(test1 == 123.456);
-			System.Diagnostics.Debug.Assert(test2 == 789.0);
-			System.Diagnostics.Debug.Assert(test3 == "");
-			System.Diagnostics.Debug.Assert(test4.Length == 0);
-			System.Diagnostics.Debug.Assert(test5[1] == 2.0);
-			System.Diagnostics.Debug.Assert((string)test6.JsonObject()["First"] == "John");
-			System.Diagnostics.Debug.Assert((string)test6.JsonObject()["Last"] == "Smith");
-			System.Diagnostics.Debug.Assert(test7.Id == "Something");
-			System.Diagnostics.Debug.Assert(test8[1].Id == 2.0);
-			System.Diagnostics.Debug.Assert(test9.ZipCode == 75015);
+			System.Diagnostics.Debug.Assert(!String.IsNullOrEmpty(testerr));
+			System.Diagnostics.Debug.Assert(test0 == "");
+			System.Diagnostics.Debug.Assert(test1 == " ");
+			System.Diagnostics.Debug.Assert(test2 == "\ta");
+			System.Diagnostics.Debug.Assert(test3 == 123.456);
+			System.Diagnostics.Debug.Assert(test4 == 789.0);
+			System.Diagnostics.Debug.Assert(test5 == "");
+			System.Diagnostics.Debug.Assert(test6.Length == 0);
+			System.Diagnostics.Debug.Assert(test7[1] == 2.0);
+			System.Diagnostics.Debug.Assert((string)test8.JsonObject()["First"] == "John");
+			System.Diagnostics.Debug.Assert((string)test8.JsonObject()["Last"] == "Smith");
+			System.Diagnostics.Debug.Assert(test9.Id == "Something");
+			System.Diagnostics.Debug.Assert(test10[1].Id == 2.0);
+			System.Diagnostics.Debug.Assert(test11.ZipCode == 75015);
 			Console.WriteLine();
 			Console.WriteLine("Passed - Press a key...");
 			Console.WriteLine();
