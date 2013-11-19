@@ -5,18 +5,18 @@ using System.Text;
 
 namespace TestJSONParser
 {
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            BasicTests.MostBasicTest();
-            BasicTests.DateTimeTest();
-            BasicTests.PersonTest();
-            BasicTests.PersonAnonTest();
-            BasicTests.Top10Youtube2013Test();
-            BasicTests.SmallTest();
-            BasicTests.HugeTest();
-            BasicTests.FathersTest();
-        }
-    }
+	class Program
+	{
+		static void Main(string[] args)
+		{
+			BasicTests.MostBasicTest();
+			BasicTests.DateTimeTest();
+			BasicTests.PersonTest();
+			BasicTests.PersonAnonTest();
+			BasicTests.Top10Youtube2013Test();
+			BasicTests.SmallTest();
+			BasicTests.HugeTest();
+			BasicTests.FathersTest();
+		}
+	}
 }
