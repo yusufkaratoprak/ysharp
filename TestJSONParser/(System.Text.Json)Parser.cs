@@ -359,12 +359,12 @@ namespace System.Text.Json
 				{
 					if (key && ids)
 					{
-						if ((ch == '$') || (ch == '_') || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= 'a') && (ch <= 'z')))
+						if ((ch == '$') || ((ch >= 'A') && (ch <= 'Z')) || (ch == '_') || ((ch >= 'a') && (ch <= 'z')))
 							Append(ch);
 						else
 							throw Error("Bad identifier");
 						while (data ? read(NEXT) : false)
-							if ((ch == '$') || (ch == '_') || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= 'a') && (ch <= 'z')))
+							if ((ch == '$') || ((ch >= '0') && (ch <= '9')) || ((ch >= 'A') && (ch <= 'Z')) || (ch == '_') || ((ch >= 'a') && (ch <= 'z')))
 								Append(ch);
 							else if ((ch > ' ') && (ch != ':'))
 								throw Error("Bad identifier");
