@@ -13,7 +13,7 @@ namespace TestJSONParser
 			BasicTests.DateTimeTest();
 			BasicTests.PersonTest();
 			BasicTests.PersonAnonTest();
-			BasicTests.Top10Youtube2013Test();
+			BasicTests.Top15Youtube2013Test();
 			BasicTests.SmallTest();
 			BasicTests.HugeTest();
 			BasicTests.FathersTest();

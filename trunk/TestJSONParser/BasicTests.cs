@@ -68,9 +68,7 @@ namespace TestJSONParser
 			System.Diagnostics.Debug.Assert(test9.Id == "Something");
 			System.Diagnostics.Debug.Assert(test10[1].Id == 2.0);
 			System.Diagnostics.Debug.Assert(test11.ZipCode == 75015);
-			Console.WriteLine();
-			Console.WriteLine("Passed - Press a key...");
-			Console.WriteLine();
+			Console.Write("Passed - Press a key...");
 			Console.ReadKey();
 		}
 
@@ -124,8 +122,7 @@ namespace TestJSONParser
 			Console.WriteLine(dateTime);
 			Console.WriteLine();
 			System.Diagnostics.Debug.Assert(dateTime == new DateTime(1970, 5, 10));
-			Console.WriteLine("Passed - Press a key...");
-			Console.WriteLine();
+			Console.Write("Passed - Press a key...");
 			Console.ReadKey();
 		}
 
@@ -193,8 +190,7 @@ namespace TestJSONParser
 			System.Diagnostics.Debug.Assert(person.Computers[1].Type == "Phone");
 			System.Diagnostics.Debug.Assert(person.Addresses["Main"].City == "Paris");
 			System.Diagnostics.Debug.Assert(person.Addresses["Secondary"].City == "Geneva");
-			Console.WriteLine("Passed - Press a key...");
-			Console.WriteLine();
+			Console.Write("Passed - Press a key...");
 			Console.ReadKey();
 		}
 
@@ -257,17 +253,16 @@ namespace TestJSONParser
 			System.Diagnostics.Debug.Assert(person.Computers[1].Type == "Phone");
 			System.Diagnostics.Debug.Assert(person.Addresses[0].City == "Paris");
 			System.Diagnostics.Debug.Assert(person.Addresses[1].City == "Geneva");
-			Console.WriteLine("Passed - Press a key...");
-			Console.WriteLine();
+			Console.Write("Passed - Press a key...");
 			Console.ReadKey();
 		}
 
-		public static void Top10Youtube2013Test()
+		public static void Top15Youtube2013Test()
 		{
 			Console.Clear();
-			Console.WriteLine("Top 10 Youtube 2013 Test - JSON parse...");
+			Console.WriteLine("Top 15 Youtube 2013 Test - JSON parse...");
 			Console.WriteLine();
-			System.Net.WebRequest www = System.Net.WebRequest.Create("https://gdata.youtube.com/feeds/api/videos?q=2013&max-results=10&v=2&alt=jsonc");
+			System.Net.WebRequest www = System.Net.WebRequest.Create("https://gdata.youtube.com/feeds/api/videos?q=2013&max-results=15&v=2&alt=jsonc");
 			using (System.IO.Stream stream = www.GetResponse().GetResponseStream())
 			{
 				// Yup, as simple as this, step #1:
@@ -318,7 +313,6 @@ namespace TestJSONParser
 							)
 					);
 
-				Console.WriteLine();
 				foreach (var item in parsed.Data.Items)
 				{
 					var title = item.Title;
@@ -330,8 +324,7 @@ namespace TestJSONParser
 					Console.WriteLine("\t\tURL: {0}", link);
 					Console.WriteLine();
 				}
-				Console.WriteLine("Press a key...");
-				Console.WriteLine();
+				Console.Write("Press a key...");
 				Console.ReadKey();
 			}
 		}
@@ -354,8 +347,7 @@ namespace TestJSONParser
 			var obj = (null as object).FromJson(small);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
 			Console.WriteLine();
-			Console.WriteLine("Press a key...");
-			Console.WriteLine();
+			Console.Write("Press a key...");
 			Console.ReadKey();
 		}
 
@@ -383,8 +375,7 @@ namespace TestJSONParser
 			obj = (null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
 			Console.WriteLine();
-			Console.WriteLine("Press a key...");
-			Console.WriteLine();
+			Console.Write("Press a key...");
 			Console.ReadKey();
 #endif
 		}
@@ -432,7 +423,6 @@ namespace TestJSONParser
 				Console.WriteLine("\thas {0} son(s), and {1} daughter(s)", sons.Count, daughters.Count);
 				Console.WriteLine();
 			}
-			Console.WriteLine();
 			Console.WriteLine("The end... Press a key...");
 			Console.ReadKey();
 		}
