@@ -145,7 +145,7 @@ namespace TestJSONParser
 						(type, key, value) =>
 							(key == typeof(int)) ?
 								(Func<int>)
-								(() => int.Parse(value)) :
+								(() => int.Parse((value[0] != '$') ? value : value.Substring(1))) :
 								null
 					);
 
@@ -166,28 +166,30 @@ namespace TestJSONParser
 					@"
 					{
 						""Addresses"": {
-							""Main"" : { ""City"": ""Paris"" },
-							""Secondary"" : { ""City"": ""Geneva"" }
+							""Main"" : { City: ""Paris"" },
+							Secondary : { ""City"": ""Geneva"" }
 						},
 						""Codes"": {
-							""1"": ""one"",
-							""2"": ""two"",
-							""3"": ""three"",
-							""4"": ""four"",
-							""5"": ""five""
+							$1: ""one"",
+							$2: ""two"",
+							$3: ""three"",
+							$4: ""four"",
+							$5: ""five""
 						},
 						""Name"": ""Peter"",
 						""Computers"": [
 							{ ""Type"": ""Laptop"" },
-							{ ""Type"": ""Phone"" }
+							{ Type: ""Phone"" }
 						]
 					}   ",
+					new ParserSettings { AcceptIdentifiers = true },
 					Person.CodesKey
 				);
 			System.Diagnostics.Debug.Assert(person.Name == "Peter");
 			System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
 			System.Diagnostics.Debug.Assert(person.Codes[5] == "five");
 			System.Diagnostics.Debug.Assert(person.Computers.Count == 2);
+			System.Diagnostics.Debug.Assert(person.Computers[0].Type == "Laptop");
 			System.Diagnostics.Debug.Assert(person.Computers[1].Type == "Phone");
 			System.Diagnostics.Debug.Assert(person.Addresses["Main"].City == "Paris");
 			System.Diagnostics.Debug.Assert(person.Addresses["Secondary"].City == "Geneva");
@@ -229,19 +231,19 @@ namespace TestJSONParser
 					{
 						Addresses : [
 							{ ""City"": ""Paris"" },
-							{ ""City"": ""Geneva"" }
+							{ City: ""Geneva"" }
 						],
 						""Name"" : ""Paul"",
 						Codes   : {
-							""1"": ""one"",
-							""2"": ""two"",
-							""3"": ""three"",
-							""4"": ""four"",
-							""5"": ""five""
+							$1: ""one"",
+							$2: ""two"",
+							$3: ""three"",
+							$4: ""four"",
+							$5: ""five""
 						},
-						Computers: [
+						""Computers"": [
 							{ Type : ""Laptop"" },
-							{ Type : ""Phone"" }
+							{ ""Type"" : ""Phone"" }
 						]
 					}   ",
 					new ParserSettings { AcceptIdentifiers = true },
@@ -251,6 +253,7 @@ namespace TestJSONParser
 			System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
 			System.Diagnostics.Debug.Assert(person.Codes[5] == "five");
 			System.Diagnostics.Debug.Assert(person.Computers.Length == 2);
+			System.Diagnostics.Debug.Assert(person.Computers[0].Type == "Laptop");
 			System.Diagnostics.Debug.Assert(person.Computers[1].Type == "Phone");
 			System.Diagnostics.Debug.Assert(person.Addresses[0].City == "Paris");
 			System.Diagnostics.Debug.Assert(person.Addresses[1].City == "Geneva");
