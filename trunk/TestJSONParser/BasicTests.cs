@@ -13,7 +13,7 @@ namespace TestJSONParser
 		const string SMALL_TEST_FILE_PATH = @"..\..\small.json.txt"; // avg: 4kb ~ 1ms
 		const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 1sec
 #if WITH_HUGE_TEST
-        const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
+		const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
 #endif
 		public static void MostBasicTest()
 		{
@@ -46,11 +46,12 @@ namespace TestJSONParser
 				(
 					" { ZipCode: 75015 } ",
 					new ParserSettings { AcceptIdentifiers = true },
-					(target, type, key, value) =>
-						((target == typeof(int)) && !(key is bool)) ?
-						(Func<object>)
-						(() => Convert.ToInt32(value)) :
-						null
+					Map.Value(default(double), default(int)).
+						Using
+						(
+							(type, key, value) =>
+								() => Convert.ToInt32(value)
+						)
 				);
 
 			System.Diagnostics.Debug.Assert(!String.IsNullOrEmpty(testerr));
@@ -86,27 +87,37 @@ namespace TestJSONParser
 				Day = 0
 			};
 
-			Reviver ToDateTime =
-				(target, type, key, value) =>
-					((target == typeof(int)) && !(key is bool)) ?
-						(Func<object>)(() => Convert.ToInt32(value)) :
-						((target == DATE_JSON.GetType()) && (key == null)) ?
-							(Func<object>)
-							(
-								() => new DateTime
+
+			var ToInteger =
+				Map.Value(default(double), default(int)).
+					Using
+					(
+						(type, key, value) =>
+							() => Convert.ToInt32(value)
+					);
+
+			var ToDateTime =
+				Map.Value(DATE_JSON, default(DateTime)).
+					Using
+					(
+						(type, key, value) =>
+							(type == typeof(DateTime)) ?
+								(Func<DateTime>)
 								(
-									value.As(DATE_JSON).Year,
-									value.As(DATE_JSON).Month,
-									value.As(DATE_JSON).Day
-								)
-							) :
-							null;
+									() =>
+										(value != null) ?
+											new DateTime(value.Year, value.Month, value.Day) :
+											default(DateTime)
+								) :
+								null
+					);
 
 			var dateTime = DATE_JSON.
 				FromJson
 				(
 					default(DateTime),
 					@" { ""Year"": 1970, ""Month"": 5, ""Day"": 10 }",
+					ToInteger,
 					ToDateTime
 				);
 
@@ -127,12 +138,17 @@ namespace TestJSONParser
 			public string Name { get; set; }
 			public IList<Computer> Computers { get; set; }
 
-			internal static readonly Reviver CodesIntegerKey =
-				(target, type, key, value) =>
-					((target == typeof(int)) && (key is bool)) ?
-					(Func<object>)
-					(() => Convert.ToInt32(value)) :
-					null;
+			internal static readonly Reviver<string, int> CodesKey =
+				Map.Value(default(string), default(int)).
+					Using
+					(
+						(type, key, value) =>
+							(key == typeof(int)) ?
+								(Func<int>)
+								(() => int.Parse(value)) :
+								null
+					);
+
 			public IDictionary<int, string> Codes { get; set; }
 
 			public IDictionary<string, Address> Addresses { get; set; }
@@ -166,7 +182,7 @@ namespace TestJSONParser
 							{ ""Type"": ""Phone"" }
 						]
 					}   ",
-					Person.CodesIntegerKey
+					Person.CodesKey
 				);
 			System.Diagnostics.Debug.Assert(person.Name == "Peter");
 			System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
@@ -229,7 +245,7 @@ namespace TestJSONParser
 						]
 					}   ",
 					new ParserSettings { AcceptIdentifiers = true },
-					Person.CodesIntegerKey
+					Person.CodesKey
 				);
 			System.Diagnostics.Debug.Assert(person.Name == "Paul");
 			System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
@@ -278,15 +294,24 @@ namespace TestJSONParser
 					FromJson
 					(
 						stream,
-						(target, type, key, value) =>
-							// maps: "data" => "Data", "items" => "Items", "title" => "Title", ...etc
-							(key is bool) ?
-								(Func<object>)(() => String.Concat((char)(value.ToString()[0] - 32), value.ToString().Substring(1))) :
-								null,
-						(target, type, key, value) =>
-							((type == typeof(DateTime)) && !(key is bool)) ?
-								(Func<object>)(() => DateTime.Parse((string)value)) :
-								null
+						Map.Value(default(string), default(string)).
+							Using
+							(
+								(type, key, value) =>
+									(key == typeof(string)) ?
+										(Func<string>)
+										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
+										null
+							),
+						Map.Value(default(string), default(DateTime)).
+							Using
+							(
+								(type, key, value) =>
+									(type == typeof(DateTime)) ?
+										(Func<DateTime>)
+										(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : default(DateTime))) :
+										null
+							)
 					);
 
 				Console.WriteLine();
@@ -333,30 +358,30 @@ namespace TestJSONParser
 		public static void HugeTest()
 		{
 #if WITH_HUGE_TEST
-            Console.Clear();
-            string json = System.IO.File.ReadAllText(HUGE_TEST_FILE_PATH);
-            object obj;
-            Console.WriteLine("Huge Test - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
-            Console.WriteLine();
+			Console.Clear();
+			string json = System.IO.File.ReadAllText(HUGE_TEST_FILE_PATH);
+			object obj;
+			Console.WriteLine("Huge Test - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
+			Console.WriteLine();
 
-            /*var serializer = new System.Web.Script.Serialization.JavaScriptSerializer
-            {
-                MaxJsonLength = int.MaxValue
-            };
-            Console.WriteLine("\tParsed by {0} in...", serializer.GetType().FullName);
-            DateTime start1 = DateTime.Now;
-            obj = serializer.DeserializeObject(json);
-            Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start1).TotalMilliseconds);
-            Console.WriteLine();*/
+			/*var serializer = new System.Web.Script.Serialization.JavaScriptSerializer
+			{
+				MaxJsonLength = int.MaxValue
+			};
+			Console.WriteLine("\tParsed by {0} in...", serializer.GetType().FullName);
+			DateTime start1 = DateTime.Now;
+			obj = serializer.DeserializeObject(json);
+			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start1).TotalMilliseconds);
+			Console.WriteLine();*/
 
-            Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
-            DateTime start2 = DateTime.Now;
-            obj = (null as object).FromJson<object>(json);
-            Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
-            Console.WriteLine();
-            Console.WriteLine("Press a key...");
-            Console.WriteLine();
-            Console.ReadKey();
+			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
+			DateTime start2 = DateTime.Now;
+			obj = (null as object).FromJson<object>(json);
+			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
+			Console.WriteLine();
+			Console.WriteLine("Press a key...");
+			Console.WriteLine();
+			Console.ReadKey();
 #endif
 		}
 
@@ -379,7 +404,7 @@ namespace TestJSONParser
 
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
-			var myObj = ((object)null).FromJson(json);
+			var myObj = (null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
 			Console.WriteLine();
 
