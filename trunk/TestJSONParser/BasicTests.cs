@@ -82,9 +82,9 @@ namespace TestJSONParser
 
 			var DATE_JSON = new
 			{
-				Year = 0,
-				Month = 0,
-				Day = 0
+				the_Year = 0,
+				the_Month = 0,
+				the_Day = 0
 			};
 
 
@@ -106,8 +106,8 @@ namespace TestJSONParser
 								(
 									() =>
 										(value != null) ?
-											new DateTime(value.Year, value.Month, value.Day) :
-											default(DateTime)
+											new DateTime(value.the_Year, value.the_Month, value.the_Day) :
+											DateTime.Now
 								) :
 								null
 					);
@@ -116,7 +116,7 @@ namespace TestJSONParser
 				FromJson
 				(
 					default(DateTime),
-					@" { ""Year"": 1970, ""Month"": 5, ""Day"": 10 }",
+					@" { ""the_Year"": 1970, ""the_Month"": 5, ""the_Day"": 10 }",
 					ToInteger,
 					ToDateTime
 				);
@@ -313,7 +313,7 @@ namespace TestJSONParser
 								(type, key, value) =>
 									(type == typeof(DateTime)) ?
 										(Func<DateTime>)
-										(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : default(DateTime))) :
+										(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
 										null
 							)
 					);
