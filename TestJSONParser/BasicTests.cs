@@ -41,7 +41,7 @@ namespace TestJSONParser
 			var test8 = (null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
 			var test9 = new { Id = "" }.FromJson("{\"Id\":\"Something\"}");
 			var test10 = new[] { new { Id = .0 } }.FromJson("[{\"Id\":1}, {\"Id\":2}]");
-			var test11 = new { ZipCode = 75015 }.
+			var test11 = new { ZipCode = 0 }.
 				FromJson
 				(
 					" { ZipCode: 75015 } ",
@@ -300,6 +300,7 @@ namespace TestJSONParser
 						Map.Value(default(string), default(string)).
 							Using
 							(
+								// turn Youtube's JSON keys from lower camel case to Pascal case:
 								(type, key, value) =>
 									(key == typeof(string)) ?
 										(Func<string>)
@@ -350,7 +351,7 @@ namespace TestJSONParser
 
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start = DateTime.Now;
-			var obj = ((object)null).FromJson(small);
+			var obj = (null as object).FromJson(small);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
 			Console.WriteLine();
 			Console.WriteLine("Press a key...");
@@ -379,7 +380,7 @@ namespace TestJSONParser
 
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
-			obj = (null as object).FromJson<object>(json);
+			obj = (null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
 			Console.WriteLine();
 			Console.WriteLine("Press a key...");
