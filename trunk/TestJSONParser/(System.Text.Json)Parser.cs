@@ -35,7 +35,7 @@ using System.Text;
 
 namespace System.Text.Json
 {
-	public delegate Func<R> Reviver<T, R>(Type target, Type key, T value);
+	public delegate Func<R> Reviver<T, R>(Type type, Type key, T value);
 
 	public class ParserSettings
 	{
@@ -209,7 +209,7 @@ namespace System.Text.Json
 				return mapper;
 			}
 
-			private object Word(Type target, params Delegate[] revivers)
+			private object Word(Type type, params Delegate[] revivers)
 			{
 				Delegate mapped;
 				switch (ch)
@@ -219,7 +219,7 @@ namespace System.Text.Json
 						if (data) read('r');
 						if (data) read('u');
 						if (data) read('e');
-						mapped = Map(revivers, target, null, true);
+						mapped = Map(revivers, type, null, true);
 						return ((mapped != null) ? mapped.DynamicInvoke() : true);
 					case 'f':
 						if (data) read('f');
@@ -227,14 +227,14 @@ namespace System.Text.Json
 						if (data) read('l');
 						if (data) read('s');
 						if (data) read('e');
-						mapped = Map(revivers, target, null, false);
+						mapped = Map(revivers, type, null, false);
 						return ((mapped != null) ? mapped.DynamicInvoke() : false);
 					case 'n':
 						if (data) read('n');
 						if (data) read('u');
 						if (data) read('l');
 						if (data) read('l');
-						mapped = Map(revivers, target, null, null as object);
+						mapped = Map(revivers, type, null, null as object);
 						return ((mapped != null) ? mapped.DynamicInvoke() : null);
 				}
 				throw Error(String.Format("Unexpected '{0}'", ch));
