@@ -1,4 +1,4 @@
-//#define WITH_HUGE_TEST
+﻿//#define WITH_HUGE_TEST
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,22 +19,22 @@ namespace TestJSONParser
 		internal static class Sample_Revivers
 		{
 			internal static readonly Reviver<double, int> ToInteger =
-				Map.Value(default(double), default(int)).
+				Value.Map(default(double), default(int)).
 					Using
 					(
-						(outer, type, value) =>
-							((outer == typeof(int)) && (type == null)) ?
+						(outer, key, value) =>
+							((outer == typeof(int)) && (key == null)) ?
 								(Func<int>)
 								(() => Convert.ToInt32(value)) :
 								null
 					);
 
 			internal static readonly Reviver<string, int> Person_Codes_Key =
-				Map.Value(default(string), default(int)).
+				Value.Map(default(string), default(int)).
 					Using
 					(
-						(outer, type, value) =>
-							(type == typeof(int)) ?
+						(outer, key, value) =>
+							(key == typeof(int)) ?
 								(Func<int>)
 								(() => int.Parse((value[0] != '$') ? value : value.Substring(1))) :
 								null
@@ -50,24 +50,24 @@ namespace TestJSONParser
 			string testerr;
 			try
 			{
-				testerr = "".FromJson("");
+				testerr = Value.Map("").FromJson("");
 			}
 			catch (Exception ex)
 			{
 				testerr = ex.Message;
 			}
-			var test0 = "".FromJson("\"\"");
-			var test1 = "".FromJson("\" \"");
-			var test2 = "".FromJson("\"\\ta\"");
-			var test3 = default(double).FromJson("123.456");
-			var test4 = default(double).FromJson("789");
-			var test5 = "".FromJson("\"\"");
-			var test6 = (null as object[]).FromJson("[]");
-			var test7 = (null as double[]).FromJson("[1,2,3]");
-			var test8 = (null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
-			var test9 = new { Id = "" }.FromJson("{\"Id\":\"Something\"}");
-			var test10 = new[] { new { Id = .0 } }.FromJson("[{\"Id\":1}, {\"Id\":2}]");
-			var test11 = new { ZipCode = 0 }.
+			var test0 = Value.Map("").FromJson("\"\"");
+			var test1 = Value.Map("").FromJson("\" \"");
+			var test2 = Value.Map("").FromJson("\"\\ta\"");
+			var test3 = Value.Map(0.0).FromJson("123.456");
+			var test4 = Value.Map(0.0).FromJson("789");
+			var test5 = Value.Map("").FromJson("\"\"");
+			var test6 = Value.Map(null as object[]).FromJson("[]");
+			var test7 = Value.Map(null as double[]).FromJson("[1,2,3]");
+			var test8 = Value.Map(null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
+			var test9 = Value.Map(new { Id = "" }).FromJson("{\"Id\":\"Something\"}");
+			var test10 = Value.Map(new[] { new { Id = .0 } }).FromJson("[{\"Id\":1}, {\"Id\":2}]");
+			var test11 = Value.Map(new { ZipCode = 0 }).
 				FromJson
 				(
 					" { ZipCode: 75015 } ",
@@ -84,8 +84,8 @@ namespace TestJSONParser
 			System.Diagnostics.Debug.Assert(test5 == "");
 			System.Diagnostics.Debug.Assert(test6.Length == 0);
 			System.Diagnostics.Debug.Assert(test7[1] == 2.0);
-			System.Diagnostics.Debug.Assert((string)test8.JsonObject()["First"] == "John");
-			System.Diagnostics.Debug.Assert((string)test8.JsonObject()["Last"] == "Smith");
+			System.Diagnostics.Debug.Assert((string)test8.Object()["First"] == "John");
+			System.Diagnostics.Debug.Assert((string)test8.Object()["Last"] == "Smith");
 			System.Diagnostics.Debug.Assert(test9.Id == "Something");
 			System.Diagnostics.Debug.Assert(test10[1].Id == 2.0);
 			System.Diagnostics.Debug.Assert(test11.ZipCode == 75015);
@@ -109,11 +109,11 @@ namespace TestJSONParser
 			// Reviver that must be in this local scope,
 			// because of the anonymous type it uses:
 			var ToDateTime =
-				Map.Value(DATE_JSON, default(DateTime)).
+				Value.Map(DATE_JSON, default(DateTime)).
 					Using
 					(
-						(outer, type, value) =>
-							(outer == typeof(DateTime)) ?
+						(outer, key, value) =>
+							((outer == typeof(DateTime)) && (key == null)) ?
 								(Func<DateTime>)
 								(
 									() =>
@@ -124,7 +124,7 @@ namespace TestJSONParser
 								null
 					);
 
-			DateTime dateTime = DATE_JSON.
+			var dateTime = Value.Map(DATE_JSON, default(DateTime)).
 				FromJson
 				(
 					default(DateTime),
@@ -161,7 +161,7 @@ namespace TestJSONParser
 			Console.Clear();
 			Console.WriteLine("Basic Tests - Person");
 			Console.WriteLine();
-			var person = (null as Person).
+			var person = Value.Map(null as Person).
 				FromJson
 				(
 					@"
@@ -224,7 +224,7 @@ namespace TestJSONParser
 				Codes = (null as IDictionary<int, string>)
 			};
 
-			var person = PERSON_JSON.
+			var person = Value.Map(PERSON_JSON).
 				FromJson
 				(
 					@"
@@ -292,28 +292,28 @@ namespace TestJSONParser
 				};
 
 				// And as easy as that, step #2:
-				var parsed = YOUTUBE_JSON.
+				var parsed = Value.Map(YOUTUBE_JSON).
 					FromJson
 					(
 						stream,
-						// Needed for Youtube's JSON values such as "uploaded", "updated", etc:
-				        Map.Value(default(string), default(DateTime)).
-					        Using
-					        (
-						        (outer, type, value) =>
+					// Needed for Youtube's JSON values such as "uploaded", "updated", etc:
+						Value.Map(default(string), default(DateTime)).
+							Using
+							(
+								(outer, key, value) =>
 								(
 									(outer == typeof(DateTime)) &&
-									(type == null)
+									(key == null)
 								) ?
 									(Func<DateTime>)
-								        	(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
-								        	null
-					        ),
-						// Needed to turn Youtube's JSON keys from lower camel case to Pascal case:
-						Map.Value(default(string), default(string)).
+											(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
+											null
+							),
+					// Needed to turn Youtube's JSON keys from lower camel case to Pascal case:
+						Value.Map(default(string), default(string)).
 						Using
 						(
-							(outer, type, value) =>
+							(outer, key, value) =>
 								(
 									new[]
 									{
@@ -322,7 +322,7 @@ namespace TestJSONParser
 										YOUTUBE_JSON.Data.Items[0].GetType(),
 										YOUTUBE_JSON.Data.Items[0].Player.GetType()
 									}.Contains(outer) &&
-									(type == typeof(string))
+									(key == typeof(string))
 								) ?
 										(Func<string>)
 										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
@@ -361,7 +361,7 @@ namespace TestJSONParser
 
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start = DateTime.Now;
-			var obj = (null as object).FromJson(small);
+			var obj = Value.Map(null as object).FromJson(small);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
 			Console.WriteLine();
 			Console.Write("Press a key...");
@@ -417,14 +417,14 @@ namespace TestJSONParser
 			Console.WriteLine();
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
-			var myObj = (null as object).FromJson(json);
+			var myObj = Value.Map(null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
 			Console.WriteLine();
 
 			Console.WriteLine("Press '1' to inspect our result object,\r\nany other key to inspect Microsoft's JS serializer result object...");
 			var parsed = ((Console.ReadKey().KeyChar == '1') ? myObj : msObj);
 
-			IList<object> fathers = parsed.JsonObject()["fathers"].JsonArray();
+			IList<object> fathers = parsed.Object()["fathers"].Array();
 			Console.WriteLine();
 			Console.WriteLine("Found : {0} fathers", fathers.Count);
 			Console.WriteLine();
@@ -434,9 +434,9 @@ namespace TestJSONParser
 			Console.WriteLine();
 			foreach (object father in fathers)
 			{
-				var name = (string)father.JsonObject()["name"];
-				var sons = father.JsonObject()["sons"].JsonArray();
-				var daughters = father.JsonObject()["daughters"].JsonArray();
+				var name = (string)father.Object()["name"];
+				var sons = father.Object()["sons"].Array();
+				var daughters = father.Object()["daughters"].Array();
 				Console.WriteLine("{0}", name);
 				Console.WriteLine("\thas {0} son(s), and {1} daughter(s)", sons.Count, daughters.Count);
 				Console.WriteLine();

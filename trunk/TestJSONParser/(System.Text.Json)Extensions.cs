@@ -35,27 +35,41 @@ using System.Text;
 
 namespace System.Text.Json
 {
-	public struct Map
+	public class Value
 	{
-		public static Map<T, R> Value<T, R>(T from, R to)
+		public static Value<T> Map<T>(T value)
 		{
-			return default(Map<T, R>);
+			return default(Value<T>);
+		}
+
+		public static Value<T, R> Map<T, R>(T from, R to)
+		{
+			return default(Value<T, R>);
 		}
 	}
 
-	public struct Map<T, R>
-	{
-	}
+	public class Value<T> { }
+
+	public class Value<T, R> { }
 
 	public static class Extensions
 	{
+		public static IList<T> IList<T>(this Type anchor, T prototype)
+		{
+			return List<T>(anchor, prototype);
+		}
 
 		public static List<T> List<T>(this Type anchor, T prototype)
 		{
 			return new List<T>();
 		}
 
-		public static Dictionary<K, V> Dictionary<K, V>(this Type anchor, K keyPrototype, V valuePrototype)
+		public static IDictionary<K, V> IDictionary<K, V>(this Type anchor, K prototypeKey, V prototypeValue)
+		{
+			return Dictionary<K, V>(anchor, prototypeKey, prototypeValue);
+		}
+
+		public static Dictionary<K, V> Dictionary<K, V>(this Type anchor, K prototypeKey, V prototypeValue)
 		{
 			return new Dictionary<K, V>();
 		}
@@ -70,137 +84,137 @@ namespace System.Text.Json
 			return (T)obj;
 		}
 
-		public static Reviver<T, R> Using<T, R>(this Map<T, R> result, Reviver<T, R> reviver)
+		public static Reviver<T, R> Using<T, R>(this Value<T, R> result, Reviver<T, R> reviver)
 		{
 			return reviver;
 		}
 
-		public static T FromJson<T>(this T prototype, string text)
+		public static T FromJson<T>(this Value<T> prototype, string text)
 		{
-			return new Parser().Parse<T, T>(text, prototype);
+			return new Parser().Parse<T, T>(text, default(T));
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, string text)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, string text)
 		{
-			return new Parser().Parse<T, R>(text, prototype);
+			return new Parser().Parse<T, R>(text, default(T));
 		}
 
-		public static T FromJson<T>(this T prototype, string text, ParserSettings settings)
+		public static T FromJson<T>(this Value<T> prototype, string text, ParserSettings settings)
 		{
-			return new Parser().Parse<T, T>(text, settings, prototype);
+			return new Parser().Parse<T, T>(text, settings, default(T));
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, string text, ParserSettings settings)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, string text, ParserSettings settings)
 		{
-			return new Parser().Parse<T, R>(text, settings, prototype);
+			return new Parser().Parse<T, R>(text, settings, default(T));
 		}
 
-		public static T FromJson<T>(this T prototype, string text, params Delegate[] revivers)
+		public static T FromJson<T>(this Value<T> prototype, string text, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, T>(text, prototype, revivers);
+			return new Parser().Parse<T, T>(text, default(T), revivers);
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, string text, params Delegate[] revivers)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, string text, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, R>(text, prototype, revivers);
+			return new Parser().Parse<T, R>(text, default(T), revivers);
 		}
 
-		public static T FromJson<T>(this T prototype, string text, ParserSettings settings, params Delegate[] revivers)
+		public static T FromJson<T>(this Value<T> prototype, string text, ParserSettings settings, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, T>(text, settings, prototype, revivers);
+			return new Parser().Parse<T, T>(text, settings, default(T), revivers);
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, string text, ParserSettings settings, params Delegate[] revivers)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, string text, ParserSettings settings, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, R>(text, settings, prototype, revivers);
+			return new Parser().Parse<T, R>(text, settings, default(T), revivers);
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.Stream stream)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.Stream stream)
 		{
-			return new Parser().Parse<T, T>(stream, prototype);
+			return new Parser().Parse<T, T>(stream, default(T));
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.Stream stream)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.Stream stream)
 		{
-			return new Parser().Parse<T, R>(stream, prototype);
+			return new Parser().Parse<T, R>(stream, default(T));
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.Stream stream, ParserSettings settings)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.Stream stream, ParserSettings settings)
 		{
-			return new Parser().Parse<T, T>(stream, settings, prototype);
+			return new Parser().Parse<T, T>(stream, settings, default(T));
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.Stream stream, ParserSettings settings)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.Stream stream, ParserSettings settings)
 		{
-			return new Parser().Parse<T, R>(stream, settings, prototype);
+			return new Parser().Parse<T, R>(stream, settings, default(T));
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.Stream stream, params Delegate[] revivers)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.Stream stream, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, T>(stream, prototype, revivers);
+			return new Parser().Parse<T, T>(stream, default(T), revivers);
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.Stream stream, params Delegate[] revivers)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.Stream stream, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, R>(stream, prototype, revivers);
+			return new Parser().Parse<T, R>(stream, default(T), revivers);
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, T>(stream, settings, prototype, revivers);
+			return new Parser().Parse<T, T>(stream, settings, default(T), revivers);
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, R>(stream, settings, prototype, revivers);
+			return new Parser().Parse<T, R>(stream, settings, default(T), revivers);
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.StreamReader reader)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.StreamReader reader)
 		{
-			return new Parser().Parse<T, T>(reader, prototype);
+			return new Parser().Parse<T, T>(reader, default(T));
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.StreamReader reader)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.StreamReader reader)
 		{
-			return new Parser().Parse<T, R>(reader, prototype);
+			return new Parser().Parse<T, R>(reader, default(T));
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, ParserSettings settings)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.StreamReader reader, ParserSettings settings)
 		{
-			return new Parser().Parse<T, T>(reader, settings, prototype);
+			return new Parser().Parse<T, T>(reader, settings, default(T));
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.StreamReader reader, ParserSettings settings)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.StreamReader reader, ParserSettings settings)
 		{
-			return new Parser().Parse<T, R>(reader, settings, prototype);
+			return new Parser().Parse<T, R>(reader, settings, default(T));
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, params Delegate[] revivers)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.StreamReader reader, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, T>(reader, prototype, revivers);
+			return new Parser().Parse<T, T>(reader, default(T), revivers);
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.StreamReader reader, params Delegate[] revivers)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.StreamReader reader, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, R>(reader, prototype, revivers);
+			return new Parser().Parse<T, R>(reader, default(T), revivers);
 		}
 
-		public static T FromJson<T>(this T prototype, System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
+		public static T FromJson<T>(this Value<T> prototype, System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, T>(reader, settings, prototype, revivers);
+			return new Parser().Parse<T, T>(reader, settings, default(T), revivers);
 		}
 
-		public static R FromJson<T, R>(this T prototype, R value, System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
+		public static R FromJson<T, R>(this Value<T, R> prototype, R value, System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
 		{
-			return new Parser().Parse<T, R>(reader, settings, prototype, revivers);
+			return new Parser().Parse<T, R>(reader, settings, default(T), revivers);
 		}
 
-		public static IDictionary<string, object> JsonObject(this object obj)
+		public static IDictionary<string, object> Object(this object obj)
 		{
 			return (IDictionary<string, object>)obj;
 		}
 
-		public static IList<object> JsonArray(this object obj)
+		public static IList<object> Array(this object obj)
 		{
 			return (IList<object>)obj;
 		}

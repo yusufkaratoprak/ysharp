@@ -35,7 +35,7 @@ using System.Text;
 
 namespace System.Text.Json
 {
-	public delegate Func<R> Reviver<T, R>(Type type, Type key, T value);
+	public delegate Func<R> Reviver<T, R>(Type outer, object key, T value);
 
 	public class ParserSettings
 	{
@@ -146,7 +146,7 @@ namespace System.Text.Json
 					if (obj is Type)
 					{
 						var p = ((Type)obj).GetProperty(key);
-                        return (((p != null) && p.CanWrite) ? (hash[key] = p) : (hash[key] = false));
+						return (((p != null) && p.CanWrite) ? (hash[key] = p) : null);
 					}
 					else
 					{
@@ -155,19 +155,19 @@ namespace System.Text.Json
 						while (--i >= 0)
 							if (a[i].Name == key)
 								break;
-                        return ((i >= 0) ? (hash[key] = i) : (hash[key] = false));
+						return ((i >= 0) ? (hash[key] = i) : null);
 					}
 				}
 				else
 					return hash[key];
 			}
 
-			private Delegate Map<T>(Delegate[] revivers, Type outer, Type type, T value)
+			private Delegate Map<T>(Delegate[] revivers, Type outer, object key, T value)
 			{
-				return Map(revivers, outer, type, typeof(T), value);
+				return Map(revivers, outer, key, typeof(T), value);
 			}
 
-			private Delegate Map(Delegate[] revivers, Type outer, Type type, Type value, object obj)
+			private Delegate Map(Delegate[] revivers, Type outer, object key, Type value, object obj)
 			{
 				Delegate mapper = null;
 				if
@@ -193,7 +193,7 @@ namespace System.Text.Json
 							!candidate.GetType().GetGenericArguments()[0].IsAssignableFrom(value)
 						)
 							continue;
-						if ((mapper = (revivers[i].DynamicInvoke(outer, type, obj) as Delegate)) != null)
+						if ((mapper = (revivers[i].DynamicInvoke(outer, key, obj) as Delegate)) != null)
 							break;
 					}
 				return mapper;
@@ -271,7 +271,7 @@ namespace System.Text.Json
 				return ((mapped != null) ? mapped.DynamicInvoke() : n);
 			}
 
-			private object Literal(Type type, bool key, params Delegate[] revivers)
+			private object Literal(Type type, object key, params Delegate[] revivers)
 			{
 				int hex, i, uffff;
 				string s;
@@ -285,7 +285,7 @@ namespace System.Text.Json
 						{
 							if (data) read(NEXT);
 							s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-							var mapped = Map(revivers, type, (key ? typeof(string) : null), s);
+							var mapped = Map(revivers, type, key, s);
 							return ((mapped != null) ? mapped.DynamicInvoke() : s);
 						}
 						if (ch == '\\')
@@ -347,7 +347,7 @@ namespace System.Text.Json
 				}
 				else
 				{
-					if (key && ids)
+					if ((key != null) && ids)
 					{
 						if ((ch == '$') || ((ch >= 'A') && (ch <= 'Z')) || (ch == '_') || ((ch >= 'a') && (ch <= 'z')))
 							Append(ch);
@@ -361,7 +361,7 @@ namespace System.Text.Json
 							else
 							{
 								s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-								var mapped = Map(revivers, type, (key ? typeof(string) : null), s);
+								var mapped = Map(revivers, type, key, s);
 								return ((mapped != null) ? mapped.DynamicInvoke() : s);
 							}
 					}
@@ -384,32 +384,44 @@ namespace System.Text.Json
 
 			private object Object(Type type, params Delegate[] revivers)
 			{
-				Func<Type, bool> dit = (t) => (t.IsGenericType && (t.GetGenericTypeDefinition() == typeof(IDictionary<,>)));
-				bool obj = ((type = (type ?? typeof(object))) == typeof(object));
-				bool ish = (!obj && typeof(System.Collections.IDictionary).IsAssignableFrom(type));
-				Type did = (!obj && !ish && type.IsGenericType && Realizes(type, typeof(IDictionary<,>)) ? type : null);
-				Type dkt = ((did != null) ? did.GetGenericArguments()[0] : null);
-				Type dvt = ((did != null) ? did.GetGenericArguments()[1] : null);
-				bool isd = (ish || (did != null));
-				bool dyn = (obj || isd);
-				bool isa = (!dyn && (type.Name[0] == '<') && type.IsSealed);
-				var ctr = ((!dyn && isa) ? type.GetConstructors()[0] : null);
+				type = (type ?? typeof(object));
+				bool isd = typeof(System.Collections.IDictionary).IsAssignableFrom(type);
+				bool ish = (isd || type.IsGenericType && Realizes(type, typeof(IDictionary<,>)));
+				Type dkt = null, dvt = null;
+				if (ish && !isd)
+				{
+					dkt = type.GetGenericArguments()[0];
+					dvt = type.GetGenericArguments()[1];
+				}
+				bool isa = (!ish && (type.Name[0] == '<') && type.IsSealed);
+				var ctr = (isa ? type.GetConstructors()[0] : null);
 				var cta = ((ctr != null) ? ctr.GetParameters() : null);
-                var arg = ((cta != null) ? new object[cta.Length] : null);
+				var arg = ((cta != null) ? new object[cta.Length] : null);
 				object o = null;
-				dkt = (ish ? typeof(object) : dkt);
-				dvt = (ish ? typeof(object) : dvt);
+				bool obj;
+				if (type.IsInterface)
+				{
+					if (ish && !isd)
+						type = typeof(Dictionary<,>).MakeGenericType(dkt, dvt);
+					else if (isd)
+						type = typeof(System.Collections.Hashtable);
+					else
+						type = typeof(object);
+				}
+				if (obj = (type == typeof(object)))
+				{
+					type = typeof(Dictionary<string, object>);
+					dkt = typeof(string);
+					dvt = typeof(object);
+				}
 				if (ch == '{')
 				{
-					var d = (dyn ? ((did != null) ? (System.Collections.IDictionary)Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(dkt, dvt), null) : (obj ? (System.Collections.IDictionary)new Dictionary<string, object>() : new System.Collections.Hashtable())) : null);
-					if (!dyn)
-					{
-						if (!isa)
-							o = Activator.CreateInstance(type, arg);
-					}
-					else
-						o = d;
-					var ti = (!dyn ? Known(type) : null);
+					System.Collections.IDictionary d = null;
+					if (!isa)
+						o = Activator.CreateInstance(type, arg);
+					if (typeof(System.Collections.IDictionary).IsAssignableFrom(type))
+						d = (System.Collections.IDictionary)o;
+					var ti = (!obj ? Known(type) : null);
 					if (data) read('{');
 					while (data && (ch <= ' ')) // Spaces
 						read(NEXT);
@@ -420,59 +432,54 @@ namespace System.Text.Json
 					}
 					while (data)
 					{
-						string k = (Literal(type, true, revivers) as string);
+						string k = (Literal(type, typeof(string), revivers) as string);
 						object m;
-                        bool ign;
-						if (!dyn && (k == null))
+						if (!obj && (k == null))
 							throw Error("Bad object key");
 						k = ((k != null) ? String.Intern(k) : k);
-						m = (!dyn ? Typed((isa ? (object)cta : type), ti, k) : null);
-                        ign = (m is bool);
+						m = (!obj ? Typed((isa ? (object)cta : type), ti, k) : null);
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (data) read(':');
-                        if ((m != null) && !ign)
-                        {
-                            if (!isa)
-                            {
-                                var p = (System.Reflection.PropertyInfo)m;
-                                var t = p.PropertyType;
-                                var v = Parse(t, revivers);
-                                var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
-                                p.SetValue(o, ((mapped != null) ? mapped.DynamicInvoke() : v), null);
-                            }
-                            else
-                            {
-                                int i = (int)m;
-                                var t = cta[i].ParameterType;
-                                var v = Parse(t, revivers);
-                                var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
-                                arg[i] = ((mapped != null) ? mapped.DynamicInvoke() : v);
-                            }
-                        }
-                        else if (!ign)
-                        {
-                            var v = Parse(dvt, revivers);
-                            if (dyn)
-                            {
-                                var mapped = Map(revivers, d.GetType(), dkt, k);
-                                var h = ((mapped != null) ? mapped.DynamicInvoke() : k);
-                                if (h == null)
-                                    throw Error("Bad key");
-                                if (d.Contains(h))
-                                    throw Error(String.Format("Duplicate key \"{0}\"", h));
-                                mapped = Map(revivers, dvt, null, ((v != null) ? v.GetType() : typeof(object)), v);
-                                d[h] = ((mapped != null) ? mapped.DynamicInvoke() : v);
-                            }
-                        }
-                        else
-                            Parse(null as Type);
+						if (m != null)
+						{
+							if (!isa)
+							{
+								var p = (System.Reflection.PropertyInfo)m;
+								var t = p.PropertyType;
+								var v = Parse(t, revivers);
+								var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
+								p.SetValue(o, ((mapped != null) ? mapped.DynamicInvoke() : v), null);
+							}
+							else
+							{
+								int i = (int)m;
+								var t = cta[i].ParameterType;
+								var v = Parse(t, revivers);
+								var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
+								arg[i] = ((mapped != null) ? mapped.DynamicInvoke() : v);
+							}
+						}
+						else if (d != null)
+						{
+							var v = Parse(dvt, revivers);
+							var mapped = Map(revivers, d.GetType(), dkt, k);
+							var h = ((mapped != null) ? mapped.DynamicInvoke() : k);
+							if (h == null)
+								throw Error("Bad key");
+							if (d.Contains(h))
+								throw Error(String.Format("Duplicate key \"{0}\"", h));
+							mapped = Map(revivers, dvt, null, ((v != null) ? v.GetType() : typeof(object)), v);
+							d[h] = ((mapped != null) ? mapped.DynamicInvoke() : v);
+						}
+						else
+							Parse(null as Type);
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (ch == '}')
 						{
 							if (data) read('}');
-							return (isa ? Activator.CreateInstance(type, arg) : o);
+							 return (isa ? Activator.CreateInstance(type, arg) : o);
 						}
 						if (data) read(',');
 						while (data && (ch <= ' ')) // Spaces
@@ -529,7 +536,7 @@ namespace System.Text.Json
 					case '[':
 						return Array(type, revivers);
 					case '"':
-						return Literal(type, false, revivers);
+						return Literal(type, null, revivers);
 					case '-':
 						return Number(type, revivers);
 					default:

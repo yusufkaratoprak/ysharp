@@ -20,116 +20,121 @@ using System.Text.Json;
  */
 namespace TestJSONParser
 {
-    public static class OtherTests
-    {
-        /*
-        // (code omitted)
+	public static class OtherTests
+	{
+		/*
+		// (code omitted)
         
-        public class Song
-        {
-            public string SongName { get; set; }
-            public string SongLength { get; set; }
-        }
+		public class Song
+		{
+			public string SongName { get; set; }
+			public string SongLength { get; set; }
+		}
 
-        public class Album
-        {
-            public DateTime Entered { get; set; }
-            public string AlbumName { get; set; }
-            public string Artist { get; set; }
-            public int YearReleased { get; set; }
-            public List<Song> Songs { get; set; }
-        }
+		public class Album
+		{
+			public DateTime Entered { get; set; }
+			public string AlbumName { get; set; }
+			public string Artist { get; set; }
+			public int YearReleased { get; set; }
+			public List<Song> Songs { get; set; }
+		}
 
-        [TestMethod]
-        public void JsonArrayParsingTest()
-        {
-            JArray jsonVal = JArray.Parse(jsonString) as JArray;
-            dynamic albums = jsonVal;
+		[TestMethod]
+		public void JsonArrayParsingTest()
+		{
+			JArray jsonVal = JArray.Parse(jsonString) as JArray;
+			dynamic albums = jsonVal;
 
-            foreach (dynamic album in albums)
-            {
-                Console.WriteLine(album.AlbumName + " (" + album.YearReleased.ToString() + ")");
-                foreach (dynamic song in album.Songs)
-                {
-                    Console.WriteLine("\t" + song.SongName);
-                }
-            }
+			foreach (dynamic album in albums)
+			{
+				Console.WriteLine(album.AlbumName + " (" + album.YearReleased.ToString() + ")");
+				foreach (dynamic song in album.Songs)
+				{
+					Console.WriteLine("\t" + song.SongName);
+				}
+			}
 
-            Console.WriteLine(albums[0].AlbumName);
-            Console.WriteLine(albums[0].Songs[1].SongName);
-        }
-        // (more code omitted) 
-        */
+			Console.WriteLine(albums[0].AlbumName);
+			Console.WriteLine(albums[0].Songs[1].SongName);
+		}
+		// (more code omitted) 
+		*/
 
-        public static void RickStrahlsDynJSONTests()
-        {
-            Console.Clear();
-            Console.WriteLine("Rick Strahl's sample");
-            Console.WriteLine();
-            Console.WriteLine("( @ http://west-wind.com/weblog/posts/2012/Aug/30/Using-JSONNET-for-dynamic-JSON-parsing )");
-            Console.WriteLine();
+		public static void RickStrahlsDynJSONTests()
+		{
+			Console.Clear();
+			Console.WriteLine("Rick Strahl's sample");
+			Console.WriteLine();
+			Console.WriteLine("( @ http://west-wind.com/weblog/posts/2012/Aug/30/Using-JSONNET-for-dynamic-JSON-parsing )");
+			Console.WriteLine();
 
-            // In the mood for terseness :)
-            var Album = new
-            {
-                Entered = default(DateTime),
-                AlbumName = "",
-                Artist = "",
-                YearReleased = 0,
+			// In the mood for terseness :)
+			var Album = new
+			{
+				Entered = default(DateTime),
+				AlbumName = "",
+				Artist = "",
+				YearReleased = 0,
 
-                // As we want an IList<> of songs (another anonymous type),
-                // one of our extension methods on System.Type will do the trick:
-                Songs = (null as Type).List(new {
-                        SongName = "",
-                        SongLength = ""
-                    })
-            };
-            // We use "new[] {}" to shape what we're interested in,
-            // here by a prototype array of our anonymous type (the one held @ Album, above)
-            var albums = new[] { Album }.
-                FromJson
-                (
-                    jsonString, // Don't forget the revivers, to map doubles into ints, and strings into DateTimes:
+				// As we want an IList<> of songs (another anonymous type),
+				// one of our extension methods on System.Type will do the trick:
+				Songs = (null as Type).List(new
+				{
+					SongName = "",
+					SongLength = ""
+				})
+			};
+			// We use this "new[] { Album }" to (strongly) type-shape what we're interested in,
+			// thus, by a prototype array of our previous anonymous type (the one held @ Album)
+			var albums = Value.Map(new[] { Album }).
+				FromJson
+				(
+					jsonString, // Don't forget the revivers, to map doubles into ints, and strings into DateTimes:
 
-                    Map.Value(default(double), default(int)).Using(
-                        (outer, type, value) =>
-							((outer == typeof(int)) && (type == null)) ?
-								(Func<int>)
-								(() => Convert.ToInt32(value)) :
-								null
-                    ),
+					Value.Map(default(double), default(int)).
+						Using
+						(
+							(outer, key, value) =>
+								((outer == typeof(int)) && (key == null)) ?
+									(Func<int>)
+									(() => Convert.ToInt32(value)) :
+									null
+						),
 
-                    Map.Value(default(string), default(DateTime)).Using(
-                        (outer, type, value) =>
-						    ((outer == typeof(DateTime)) && (type == null)) ?
-								(Func<DateTime>)
-								(() => DateTime.Parse(value)) :
-								null
-                    )
-                );
+					Value.Map(default(string), default(DateTime)).
+						Using
+						(
+							(outer, key, value) =>
+								((outer == typeof(DateTime)) && (key == null)) ?
+									(Func<DateTime>)
+									(() => DateTime.Parse(value)) :
+									null
+						)
+				);
 
-            Console.WriteLine("All albums, all songs:");
-            Console.WriteLine();
-            // Stay terse... however, stay strongly typed, too! :)
-            foreach (var album in albums)
-            {
-                Console.WriteLine("\t" + album.AlbumName + " (" + album.YearReleased.ToString() + ")");
-                foreach (var song in album.Songs)
-                    Console.WriteLine("\t\t" + song.SongName);
-            }
+			Console.WriteLine("All albums, all songs:");
+			Console.WriteLine();
+			// Stay terse... however, stay strongly typed, too! :)
+			foreach (var album in albums)
+			{
+				Console.WriteLine("\t" + album.AlbumName + " (" + album.YearReleased.ToString() + ")");
+				foreach (var song in album.Songs)
+					Console.WriteLine("\t\t" + song.SongName);
+			}
 
-            Console.WriteLine();
-            Console.WriteLine("First album, first song:");
-            Console.WriteLine();
-            Console.WriteLine("\t" + albums[0].AlbumName);
-            Console.WriteLine();
-            Console.WriteLine("\t\t" + albums[0].Songs[1].SongName);
-            Console.WriteLine();
-            Console.WriteLine("The end... Press a key...");
-            Console.ReadKey();
-        }
+			Console.WriteLine();
+			Console.WriteLine("First album, first song:");
+			Console.WriteLine();
+			Console.WriteLine("\t" + albums[0].AlbumName);
+			Console.WriteLine();
+			Console.WriteLine("\t\t" + albums[0].Songs[1].SongName);
+			Console.WriteLine();
+			Console.WriteLine("The end... Press a key...");
+			Console.ReadKey();
+		}
 
-        static string jsonString = @"[
+		static string jsonString = @"[
 {
 ""Id"": ""b3ec4e5c"",
 ""AlbumName"": ""Dirty Deeds Done Dirt Cheap"",
@@ -204,5 +209,5 @@ namespace TestJSONParser
 ]
 }
 ]";
-    }
+	}
 }
