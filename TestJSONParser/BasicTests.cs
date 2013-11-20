@@ -1,4 +1,4 @@
-﻿//#define WITH_HUGE_TEST
+//#define WITH_HUGE_TEST
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,38 +22,19 @@ namespace TestJSONParser
 				Map.Value(default(double), default(int)).
 					Using
 					(
-						(type, key, value) =>
-							() => Convert.ToInt32(value)
+						(outer, type, value) =>
+							((outer == typeof(int)) && (type == null)) ?
+								(Func<int>)
+								(() => Convert.ToInt32(value)) :
+								null
 					);
-
-			internal static readonly Reviver<string, DateTime> ToDateTime =
-				Map.Value(default(string), default(DateTime)).
-							Using
-							(
-								(type, key, value) =>
-									(type == typeof(DateTime)) ?
-										(Func<DateTime>)
-										(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
-										null
-							);
-
-			internal static readonly Reviver<string, string> CamelCaseToPascalCase =
-				Map.Value(default(string), default(string)).
-							Using
-							(
-								(type, key, value) =>
-									(key == typeof(string)) ?
-										(Func<string>)
-										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
-										null
-							);
 
 			internal static readonly Reviver<string, int> Person_Codes_Key =
 				Map.Value(default(string), default(int)).
 					Using
 					(
-						(type, key, value) =>
-							(key == typeof(int)) ?
+						(outer, type, value) =>
+							(type == typeof(int)) ?
 								(Func<int>)
 								(() => int.Parse((value[0] != '$') ? value : value.Substring(1))) :
 								null
@@ -131,8 +112,8 @@ namespace TestJSONParser
 				Map.Value(DATE_JSON, default(DateTime)).
 					Using
 					(
-						(type, key, value) =>
-							(type == typeof(DateTime)) ?
+						(outer, type, value) =>
+							(outer == typeof(DateTime)) ?
 								(Func<DateTime>)
 								(
 									() =>
@@ -315,11 +296,38 @@ namespace TestJSONParser
 					FromJson
 					(
 						stream,
+						// Needed for Youtube's JSON values such as "uploaded", "updated", etc:
+				        Map.Value(default(string), default(DateTime)).
+					        Using
+					        (
+						        (outer, type, value) =>
+								(
+									(outer == typeof(DateTime)) &&
+									(type == null)
+								) ?
+									(Func<DateTime>)
+								        	(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
+								        	null
+					        ),
 						// Needed to turn Youtube's JSON keys from lower camel case to Pascal case:
-						Sample_Revivers.CamelCaseToPascalCase,
-
-						// Needed for Youtube's such as "uploaded", "updated", etc:
-						Sample_Revivers.ToDateTime
+						Map.Value(default(string), default(string)).
+						Using
+						(
+							(outer, type, value) =>
+								(
+									new[]
+									{
+										YOUTUBE_JSON.GetType(),
+										YOUTUBE_JSON.Data.GetType(),
+										YOUTUBE_JSON.Data.Items[0].GetType(),
+										YOUTUBE_JSON.Data.Items[0].Player.GetType()
+									}.Contains(outer) &&
+									(type == typeof(string))
+								) ?
+										(Func<string>)
+										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
+										null
+							)
 					);
 
 				foreach (var item in parsed.Data.Items)
@@ -407,8 +415,10 @@ namespace TestJSONParser
 			Console.WriteLine();
 			Console.Write("Press a key...");
 			Console.ReadKey();
+            Console.WriteLine();
 
-			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
+            Console.WriteLine();
+            Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
 			var myObj = (null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
