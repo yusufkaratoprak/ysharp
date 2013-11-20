@@ -56,15 +56,19 @@ namespace TestJSONParser
 			{
 				testerr = ex.Message;
 			}
-			var test0 = Value.Map("").FromJson("\"\"");
-			var test1 = Value.Map("").FromJson("\" \"");
-			var test2 = Value.Map("").FromJson("\"\\ta\"");
-			var test3 = Value.Map(0.0).FromJson("123.456");
-			var test4 = Value.Map(0.0).FromJson("789");
-			var test5 = Value.Map("").FromJson("\"\"");
-			var test6 = Value.Map(null as object[]).FromJson("[]");
-			var test7 = Value.Map(null as double[]).FromJson("[1,2,3]");
-			var test8 = Value.Map(null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
+
+			// Basic, common atom cases types:
+			string test0 = Value.Map("").FromJson("\"\"");
+			string test1 = Value.Map("").FromJson("\" \"");
+			string test2 = Value.Map("").FromJson("\"\\ta\"");
+			double test3 = Value.Map(0.0).FromJson("123.456");
+			double test4 = Value.Map(0.0).FromJson("789");
+			string test5 = Value.Map("").FromJson("\"\"");
+			object[] test6 = Value.Map(null as object[]).FromJson("[]");
+			double[] test7 = Value.Map(null as double[]).FromJson("[1,2,3]");
+			object test8 = Value.Map(null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
+
+			// Let's go anonymous types, now:
 			var test9 = Value.Map(new { Id = "" }).FromJson("{\"Id\":\"Something\"}");
 			var test10 = Value.Map(new[] { new { Id = .0 } }).FromJson("[{\"Id\":1}, {\"Id\":2}]");
 			var test11 = Value.Map(new { ZipCode = 0 }).
@@ -124,7 +128,7 @@ namespace TestJSONParser
 								null
 					);
 
-			var dateTime = Value.Map(DATE_JSON, default(DateTime)).
+			DateTime dateTime = Value.Map(DATE_JSON, default(DateTime)).
 				FromJson
 				(
 					default(DateTime),
@@ -161,7 +165,8 @@ namespace TestJSONParser
 			Console.Clear();
 			Console.WriteLine("Basic Tests - Person");
 			Console.WriteLine();
-			var person = Value.Map(null as Person).
+
+			Person person = Value.Map(null as Person).
 				FromJson
 				(
 					@"
@@ -266,6 +271,7 @@ namespace TestJSONParser
 			Console.Clear();
 			Console.WriteLine("Top 15 Youtube 2013 Test - JSON parse...");
 			Console.WriteLine();
+
 			System.Net.WebRequest www = System.Net.WebRequest.Create("https://gdata.youtube.com/feeds/api/videos?q=2013&max-results=15&v=2&alt=jsonc");
 			using (System.IO.Stream stream = www.GetResponse().GetResponseStream())
 			{
