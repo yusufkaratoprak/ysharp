@@ -17,6 +17,7 @@ namespace TestJSONParser
 			BasicTests.SmallTest();
 			BasicTests.HugeTest();
 			BasicTests.FathersTest();
+			OtherTests.RickStrahlsDynJSONTests();
 		}
 	}
 }
