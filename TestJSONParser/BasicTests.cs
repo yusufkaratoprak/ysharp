@@ -15,6 +15,29 @@ namespace TestJSONParser
 #if WITH_HUGE_TEST
 		const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
 #endif
+
+		internal static class Sample_Revivers
+		{
+			internal static readonly Reviver<double, int> ToInteger =
+				Map.Value(default(double), default(int)).
+					Using
+					(
+						(type, key, value) =>
+							() => Convert.ToInt32(value)
+					);
+
+			internal static readonly Reviver<string, int> Person_Codes_Key =
+				Map.Value(default(string), default(int)).
+					Using
+					(
+						(type, key, value) =>
+							(key == typeof(int)) ?
+								(Func<int>)
+								(() => int.Parse((value[0] != '$') ? value : value.Substring(1))) :
+								null
+					);
+		}
+
 		public static void MostBasicTest()
 		{
 			Console.Clear();
@@ -85,15 +108,8 @@ namespace TestJSONParser
 				the_Day = 0
 			};
 
-
-			var ToInteger =
-				Map.Value(default(double), default(int)).
-					Using
-					(
-						(type, key, value) =>
-							() => Convert.ToInt32(value)
-					);
-
+			// Reviver that must be in this local scope,
+			// because of the anonymous type it uses:
 			var ToDateTime =
 				Map.Value(DATE_JSON, default(DateTime)).
 					Using
@@ -110,12 +126,12 @@ namespace TestJSONParser
 								null
 					);
 
-			var dateTime = DATE_JSON.
+			DateTime dateTime = DATE_JSON.
 				FromJson
 				(
 					default(DateTime),
 					@" { ""the_Year"": 1970, ""the_Month"": 5, ""the_Day"": 10 }",
-					ToInteger,
+					Sample_Revivers.ToInteger,
 					ToDateTime
 				);
 
@@ -133,18 +149,8 @@ namespace TestJSONParser
 		public class Person
 		{
 			public string Name { get; set; }
-			public IList<Computer> Computers { get; set; }
 
-			internal static readonly Reviver<string, int> CodesKey =
-				Map.Value(default(string), default(int)).
-					Using
-					(
-						(type, key, value) =>
-							(key == typeof(int)) ?
-								(Func<int>)
-								(() => int.Parse((value[0] != '$') ? value : value.Substring(1))) :
-								null
-					);
+			public IList<Computer> Computers { get; set; }
 
 			public IDictionary<int, string> Codes { get; set; }
 
@@ -180,7 +186,7 @@ namespace TestJSONParser
 						]
 					}   ",
 					new ParserSettings { AcceptIdentifiers = true },
-					Person.CodesKey
+					Sample_Revivers.Person_Codes_Key
 				);
 			System.Diagnostics.Debug.Assert(person.Name == "Peter");
 			System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);
@@ -243,7 +249,7 @@ namespace TestJSONParser
 						]
 					}   ",
 					new ParserSettings { AcceptIdentifiers = true },
-					Person.CodesKey
+					Sample_Revivers.Person_Codes_Key
 				);
 			System.Diagnostics.Debug.Assert(person.Name == "Paul");
 			System.Diagnostics.Debug.Assert(person.Codes.Keys.Count == 5);

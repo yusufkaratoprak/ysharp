@@ -45,11 +45,12 @@ namespace System.Text.Json
 
 	public class Parser
 	{
+		private const char NEXT = (char)0;
+		private const int LSIZE = 4096;
+
 		internal class Phrase
 		{
 			private static readonly IDictionary<char, char> ESC = new Dictionary<char, char>();
-			private const char NEXT = (char)0;
-			private const int LSIZE = 4096;
 
 			private ParserSettings config;
 			private System.Collections.Hashtable rtti;
@@ -77,17 +78,6 @@ namespace System.Text.Json
 				ESC['n'] = '\n';
 				ESC['r'] = '\r';
 				ESC['t'] = '\t';
-			}
-
-			private static ParserSettings DefaultSettings
-			{
-				get
-				{
-					return new ParserSettings
-					{
-						LiteralBufferSize = LSIZE
-					};
-				}
 			}
 
 			internal Phrase(ParserSettings settings, object input)
@@ -558,6 +548,17 @@ namespace System.Text.Json
 		protected R CompileTo<R>(object input, ParserSettings settings, Type from, params Delegate[] revivers)
 		{
 			return (R)new Phrase((settings ?? Settings), input).Compile(typeof(R), from, revivers);
+		}
+
+		public static ParserSettings DefaultSettings
+		{
+			get
+			{
+				return new ParserSettings
+				{
+					LiteralBufferSize = LSIZE
+				};
+			}
 		}
 
 		public Parser() : this(null) { }
