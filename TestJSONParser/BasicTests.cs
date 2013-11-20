@@ -415,10 +415,10 @@ namespace TestJSONParser
 			Console.WriteLine();
 			Console.Write("Press a key...");
 			Console.ReadKey();
-            Console.WriteLine();
+			Console.WriteLine();
 
-            Console.WriteLine();
-            Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
+			Console.WriteLine();
+			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
 			var myObj = (null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
@@ -444,7 +444,7 @@ namespace TestJSONParser
 				Console.WriteLine("\thas {0} son(s), and {1} daughter(s)", sons.Count, daughters.Count);
 				Console.WriteLine();
 			}
-			Console.WriteLine("The end... Press a key...");
+			Console.WriteLine("Press a key...");
 			Console.ReadKey();
 		}
 	}
