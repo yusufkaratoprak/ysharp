@@ -146,7 +146,7 @@ namespace System.Text.Json
 					if (obj is Type)
 					{
 						var p = ((Type)obj).GetProperty(key);
-						return ((p != null) ? (hash[key] = p) : null);
+                        return (((p != null) && p.CanWrite) ? (hash[key] = p) : (hash[key] = false));
 					}
 					else
 					{
@@ -155,16 +155,16 @@ namespace System.Text.Json
 						while (--i >= 0)
 							if (a[i].Name == key)
 								break;
-						return ((i >= 0) ? (hash[key] = i) : null);
+                        return ((i >= 0) ? (hash[key] = i) : (hash[key] = false));
 					}
 				}
 				else
 					return hash[key];
 			}
 
-			private Delegate Map<T>(Delegate[] revivers, Type type, Type key, T value)
+			private Delegate Map<T>(Delegate[] revivers, Type outer, Type type, T value)
 			{
-				return Map(revivers, type, key, typeof(T), value);
+				return Map(revivers, outer, type, typeof(T), value);
 			}
 
 			private Delegate Map(Delegate[] revivers, Type outer, Type type, Type value, object obj)
@@ -393,9 +393,9 @@ namespace System.Text.Json
 				bool isd = (ish || (did != null));
 				bool dyn = (obj || isd);
 				bool isa = (!dyn && (type.Name[0] == '<') && type.IsSealed);
-				var ctr = (!dyn ? (!isa ? type.GetConstructors().OrderBy(c => c.GetParameters().Length).First() : type.GetConstructors()[0]) : null);
-				var cta = (!dyn ? ctr.GetParameters() : null);
-				var arg = (!dyn ? new object[cta.Length] : null);
+				var ctr = ((!dyn && isa) ? type.GetConstructors()[0] : null);
+				var cta = ((ctr != null) ? ctr.GetParameters() : null);
+                var arg = ((cta != null) ? new object[cta.Length] : null);
 				object o = null;
 				dkt = (ish ? typeof(object) : dkt);
 				dvt = (ish ? typeof(object) : dvt);
@@ -422,47 +422,51 @@ namespace System.Text.Json
 					{
 						string k = (Literal(type, true, revivers) as string);
 						object m;
+                        bool ign;
 						if (!dyn && (k == null))
 							throw Error("Bad object key");
 						k = ((k != null) ? String.Intern(k) : k);
 						m = (!dyn ? Typed((isa ? (object)cta : type), ti, k) : null);
+                        ign = (m is bool);
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (data) read(':');
-						if (m != null)
-						{
-							if (!isa)
-							{
-								var p = (System.Reflection.PropertyInfo)m;
-								var t = p.PropertyType;
-								var v = Compile(t, true, revivers);
-								var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
-								p.SetValue(o, ((mapped != null) ? mapped.DynamicInvoke() : v), null);
-							}
-							else
-							{
-								int i = (int)m;
-								var t = cta[i].ParameterType;
-								var v = Compile(t, true, revivers);
-								var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
-								arg[i] = ((mapped != null) ? mapped.DynamicInvoke() : v);
-							}
-						}
-						else
-						{
-							var v = Compile(dvt, true, revivers);
-							if (dyn)
-							{
-								var mapped = Map(revivers, d.GetType(), dkt, k);
-								var h = ((mapped != null) ? mapped.DynamicInvoke() : k);
-								if (h == null)
-									throw Error("Bad key");
-								if (d.Contains(h))
-									throw Error(String.Format("Duplicate key \"{0}\"", h));
-								mapped = Map(revivers, dvt, null, ((v != null) ? v.GetType() : typeof(object)), v);
-								d[h] = ((mapped != null) ? mapped.DynamicInvoke() : v);
-							}
-						}
+                        if ((m != null) && !ign)
+                        {
+                            if (!isa)
+                            {
+                                var p = (System.Reflection.PropertyInfo)m;
+                                var t = p.PropertyType;
+                                var v = Parse(t, revivers);
+                                var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
+                                p.SetValue(o, ((mapped != null) ? mapped.DynamicInvoke() : v), null);
+                            }
+                            else
+                            {
+                                int i = (int)m;
+                                var t = cta[i].ParameterType;
+                                var v = Parse(t, revivers);
+                                var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
+                                arg[i] = ((mapped != null) ? mapped.DynamicInvoke() : v);
+                            }
+                        }
+                        else if (!ign)
+                        {
+                            var v = Parse(dvt, revivers);
+                            if (dyn)
+                            {
+                                var mapped = Map(revivers, d.GetType(), dkt, k);
+                                var h = ((mapped != null) ? mapped.DynamicInvoke() : k);
+                                if (h == null)
+                                    throw Error("Bad key");
+                                if (d.Contains(h))
+                                    throw Error(String.Format("Duplicate key \"{0}\"", h));
+                                mapped = Map(revivers, dvt, null, ((v != null) ? v.GetType() : typeof(object)), v);
+                                d[h] = ((mapped != null) ? mapped.DynamicInvoke() : v);
+                            }
+                        }
+                        else
+                            Parse(null as Type);
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (ch == '}')
@@ -497,7 +501,7 @@ namespace System.Text.Json
 					}
 					while (data)
 					{
-						l.Add(Compile(et, true, revivers));
+						l.Add(Parse(et, revivers));
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (ch == ']')
@@ -513,7 +517,7 @@ namespace System.Text.Json
 				throw Error("Bad array");
 			}
 
-			private object Compile(Type type, bool parse, params Delegate[] revivers)
+			private object Parse(Type type, params Delegate[] revivers)
 			{
 				type = (type ?? typeof(object));
 				while (data && (ch <= ' ')) // Spaces
@@ -533,9 +537,9 @@ namespace System.Text.Json
 				}
 			}
 
-			internal object Compile(Type to, Type from, params Delegate[] revivers)
+			internal object Parse(Type to, Type from, params Delegate[] revivers)
 			{
-				var obj = Compile(from, true, revivers);
+				var obj = Parse(from, revivers);
 				while (data && (ch <= ' ')) // Spaces
 					read(NEXT);
 				if (data)
@@ -545,9 +549,9 @@ namespace System.Text.Json
 			}
 		}
 
-		protected R CompileTo<R>(object input, ParserSettings settings, Type from, params Delegate[] revivers)
+		protected R ParseTo<R>(object input, ParserSettings settings, Type from, params Delegate[] revivers)
 		{
-			return (R)new Phrase((settings ?? Settings), input).Compile(typeof(R), from, revivers);
+			return (R)new Phrase((settings ?? Settings), input).Parse(typeof(R), from, revivers);
 		}
 
 		public static ParserSettings DefaultSettings
@@ -581,19 +585,19 @@ namespace System.Text.Json
 
 		public R Parse<R>(string text)
 		{
-			return CompileTo<R>(text, null, null);
+			return ParseTo<R>(text, null, null);
 		}
 
 		public R Parse<R>(string text, ParserSettings settings)
 		{
-			return CompileTo<R>(text, settings, null);
+			return ParseTo<R>(text, settings, null);
 		}
 
 		public R Parse<R>(System.IO.Stream stream)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, null, null);
+				return ParseTo<R>(reader, null, null);
 			}
 		}
 
@@ -601,7 +605,7 @@ namespace System.Text.Json
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, settings, null);
+				return ParseTo<R>(reader, settings, null);
 			}
 		}
 
@@ -609,55 +613,55 @@ namespace System.Text.Json
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, settings, null, revivers);
+				return ParseTo<R>(reader, settings, null, revivers);
 			}
 		}
 
 		public R Parse<R>(System.IO.StreamReader reader)
 		{
-			return CompileTo<R>(reader, null, null);
+			return ParseTo<R>(reader, null, null);
 		}
 
 		public R Parse<R>(System.IO.StreamReader reader, params Delegate[] revivers)
 		{
-			return CompileTo<R>(reader, null, null, revivers);
+			return ParseTo<R>(reader, null, null, revivers);
 		}
 
 		public R Parse<R>(System.IO.StreamReader reader, ParserSettings settings)
 		{
-			return CompileTo<R>(reader, settings, null);
+			return ParseTo<R>(reader, settings, null);
 		}
 
 		public R Parse<R>(System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
 		{
-			return CompileTo<R>(reader, settings, null, revivers);
+			return ParseTo<R>(reader, settings, null, revivers);
 		}
 
 		public R Parse<T, R>(string text, T prototype)
 		{
-			return CompileTo<R>(text, null, typeof(T));
+			return ParseTo<R>(text, null, typeof(T));
 		}
 
 		public R Parse<T, R>(string text, T prototype, params Delegate[] revivers)
 		{
-			return CompileTo<R>(text, null, typeof(T), revivers);
+			return ParseTo<R>(text, null, typeof(T), revivers);
 		}
 
 		public R Parse<T, R>(string text, ParserSettings settings, T prototype)
 		{
-			return CompileTo<R>(text, settings, typeof(T));
+			return ParseTo<R>(text, settings, typeof(T));
 		}
 
 		public R Parse<T, R>(string text, ParserSettings settings, T prototype, params Delegate[] revivers)
 		{
-			return CompileTo<R>(text, settings, typeof(T), revivers);
+			return ParseTo<R>(text, settings, typeof(T), revivers);
 		}
 
 		public R Parse<T, R>(System.IO.Stream stream, T prototype)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, null, typeof(T));
+				return ParseTo<R>(reader, null, typeof(T));
 			}
 		}
 
@@ -665,7 +669,7 @@ namespace System.Text.Json
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, null, typeof(T), revivers);
+				return ParseTo<R>(reader, null, typeof(T), revivers);
 			}
 		}
 
@@ -673,7 +677,7 @@ namespace System.Text.Json
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, settings, typeof(T));
+				return ParseTo<R>(reader, settings, typeof(T));
 			}
 		}
 
@@ -681,28 +685,28 @@ namespace System.Text.Json
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return CompileTo<R>(reader, settings, typeof(T), revivers);
+				return ParseTo<R>(reader, settings, typeof(T), revivers);
 			}
 		}
 
 		public R Parse<T, R>(System.IO.StreamReader reader, T prototype)
 		{
-			return CompileTo<R>(reader, null, typeof(T));
+			return ParseTo<R>(reader, null, typeof(T));
 		}
 
 		public R Parse<T, R>(System.IO.StreamReader reader, ParserSettings settings, T prototype)
 		{
-			return CompileTo<R>(reader, settings, typeof(T));
+			return ParseTo<R>(reader, settings, typeof(T));
 		}
 
 		public R Parse<T, R>(System.IO.StreamReader reader, T prototype, params Delegate[] revivers)
 		{
-			return CompileTo<R>(reader, null, typeof(T), revivers);
+			return ParseTo<R>(reader, null, typeof(T), revivers);
 		}
 
 		public R Parse<T, R>(System.IO.StreamReader reader, ParserSettings settings, T prototype, params Delegate[] revivers)
 		{
-			return CompileTo<R>(reader, settings, typeof(T), revivers);
+			return ParseTo<R>(reader, settings, typeof(T), revivers);
 		}
 
 		public ParserSettings Settings { get; set; }
