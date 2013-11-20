@@ -167,7 +167,7 @@ namespace System.Text.Json
 				return Map(revivers, type, key, typeof(T), value);
 			}
 
-			private Delegate Map(Delegate[] revivers, Type type, Type key, Type value, object obj)
+			private Delegate Map(Delegate[] revivers, Type outer, Type type, Type value, object obj)
 			{
 				Delegate mapper = null;
 				if
@@ -193,7 +193,7 @@ namespace System.Text.Json
 							!candidate.GetType().GetGenericArguments()[0].IsAssignableFrom(value)
 						)
 							continue;
-						if ((mapper = (revivers[i].DynamicInvoke(type, key, obj) as Delegate)) != null)
+						if ((mapper = (revivers[i].DynamicInvoke(outer, type, obj) as Delegate)) != null)
 							break;
 					}
 				return mapper;
@@ -286,7 +286,7 @@ namespace System.Text.Json
 							if (data) read(NEXT);
 							s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
 							var mapped = Map(revivers, type, (key ? typeof(string) : null), s);
-							return ((mapped != null) ? (mapped.DynamicInvoke() as string) : s);
+							return ((mapped != null) ? mapped.DynamicInvoke() : s);
 						}
 						if (ch == '\\')
 						{
@@ -362,7 +362,7 @@ namespace System.Text.Json
 							{
 								s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
 								var mapped = Map(revivers, type, (key ? typeof(string) : null), s);
-								return ((mapped != null) ? (mapped.DynamicInvoke() as string) : s);
+								return ((mapped != null) ? mapped.DynamicInvoke() : s);
 							}
 					}
 				}
