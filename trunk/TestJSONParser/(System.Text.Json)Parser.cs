@@ -271,7 +271,7 @@ namespace System.Text.Json
 				return ((mapped != null) ? mapped.DynamicInvoke() : n);
 			}
 
-			private string Literal(Type type, bool key, params Delegate[] revivers)
+			private object Literal(Type type, bool key, params Delegate[] revivers)
 			{
 				int hex, i, uffff;
 				string s;
@@ -420,7 +420,7 @@ namespace System.Text.Json
 					}
 					while (data)
 					{
-						string k = Literal(type, true, revivers);
+						string k = (Literal(type, true, revivers) as string);
 						object m;
 						if (!dyn && (k == null))
 							throw Error("Bad object key");

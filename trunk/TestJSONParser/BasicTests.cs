@@ -26,6 +26,28 @@ namespace TestJSONParser
 							() => Convert.ToInt32(value)
 					);
 
+			internal static readonly Reviver<string, DateTime> ToDateTime =
+				Map.Value(default(string), default(DateTime)).
+							Using
+							(
+								(type, key, value) =>
+									(type == typeof(DateTime)) ?
+										(Func<DateTime>)
+										(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
+										null
+							);
+
+			internal static readonly Reviver<string, string> CamelCaseToPascalCase =
+				Map.Value(default(string), default(string)).
+							Using
+							(
+								(type, key, value) =>
+									(key == typeof(string)) ?
+										(Func<string>)
+										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
+										null
+							);
+
 			internal static readonly Reviver<string, int> Person_Codes_Key =
 				Map.Value(default(string), default(int)).
 					Using
@@ -69,12 +91,7 @@ namespace TestJSONParser
 				(
 					" { ZipCode: 75015 } ",
 					new ParserSettings { AcceptIdentifiers = true },
-					Map.Value(default(double), default(int)).
-						Using
-						(
-							(type, key, value) =>
-								() => Convert.ToInt32(value)
-						)
+					Sample_Revivers.ToInteger
 				);
 
 			System.Diagnostics.Debug.Assert(!String.IsNullOrEmpty(testerr));
@@ -298,25 +315,11 @@ namespace TestJSONParser
 					FromJson
 					(
 						stream,
-						Map.Value(default(string), default(string)).
-							Using
-							(
-								// turn Youtube's JSON keys from lower camel case to Pascal case:
-								(type, key, value) =>
-									(key == typeof(string)) ?
-										(Func<string>)
-										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
-										null
-							),
-						Map.Value(default(string), default(DateTime)).
-							Using
-							(
-								(type, key, value) =>
-									(type == typeof(DateTime)) ?
-										(Func<DateTime>)
-										(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
-										null
-							)
+						// Needed to turn Youtube's JSON keys from lower camel case to Pascal case:
+						Sample_Revivers.CamelCaseToPascalCase,
+
+						// Needed for Youtube's such as "uploaded", "updated", etc:
+						Sample_Revivers.ToDateTime
 					);
 
 				foreach (var item in parsed.Data.Items)
