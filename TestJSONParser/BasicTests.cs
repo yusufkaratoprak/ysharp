@@ -396,6 +396,8 @@ namespace TestJSONParser
 			var msObj = serializer.DeserializeObject(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start1).TotalMilliseconds);
 			Console.WriteLine();
+			Console.Write("Press a key...");
+			Console.ReadKey();
 
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
