@@ -49,6 +49,17 @@ namespace System.Text.Json
 
 	public static class Extensions
 	{
+
+		public static List<T> List<T>(this Type anchor, T prototype)
+		{
+			return new List<T>();
+		}
+
+		public static Dictionary<K, V> Dictionary<K, V>(this Type anchor, K keyPrototype, V valuePrototype)
+		{
+			return new Dictionary<K, V>();
+		}
+
 		public static T As<T>(this object obj)
 		{
 			return (T)obj;
