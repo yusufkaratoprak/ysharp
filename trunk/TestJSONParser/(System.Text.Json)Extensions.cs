@@ -84,6 +84,11 @@ namespace System.Text.Json
 			return (T)obj;
 		}
 
+		public static Reviver<T, T> Using<T>(this Value<T> result, Reviver<T, T> reviver)
+		{
+			return reviver;
+		}
+
 		public static Reviver<T, R> Using<T, R>(this Value<T, R> result, Reviver<T, R> reviver)
 		{
 			return reviver;
