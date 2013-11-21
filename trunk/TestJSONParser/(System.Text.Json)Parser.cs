@@ -26,8 +26,10 @@ Except as contained in this notice, the name of Cyril Jandia shall
 not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
 from Cyril Jandia.
- */
 
+Inquiries : ysharp {dot} design {at} gmail {dot} com
+ *
+ */
 using System;
 using System.Collections.Generic;
 using System.Linq;
