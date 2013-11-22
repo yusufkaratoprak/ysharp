@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2009, 2010, 2011 Cyril Jandia
+/* Copyright (c) 2009, 2010, 2011 Cyril Jandia
  * 
  * http://www.ysharp.net/the.language/
  * 
@@ -33,12 +33,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("PEGTest")]
+[assembly: AssemblyTitle("")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Microsoft")]
-[assembly: AssemblyProduct("PEGTest")]
-[assembly: AssemblyCopyright("Copyright © Microsoft 2010")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("")]
+[assembly: AssemblyCopyright("Copyright © 2010, 2011, 2012, 2013 Cyril Jandia")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
