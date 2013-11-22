@@ -39,6 +39,54 @@ namespace System.Text.Json
 {
 	public class Value
 	{
+		internal abstract class Callable
+		{
+			internal abstract object Invoke();
+		}
+
+		internal class Callable<T> : Callable
+		{
+			internal readonly Func<object> func;
+			internal Callable(Func<object> func) { System.Linq.Expressions.Expression<Func<object>> expr = () => func(); this.func = expr.Compile(); }
+			internal override object Invoke() { return ((Func<T>)func())(); }
+		}
+
+		private static Func<object> DoUpCast<T>(Func<T> func)
+		{
+			System.Linq.Expressions.Expression<Func<object>> expr = () => func;
+			return expr.Compile();
+		}
+
+		/*private static object Invoke<T>(T prototype, Func<object> func)
+		{
+			Func<T> f = (Func<T>)func();
+			return f();
+		}*/
+
+		public static Func<object> UpCast<T>(Func<T> func)
+		{
+			Func<T> f = () => func();
+			return DoUpCast(f);
+		}
+
+		public static object Call(Type type, Func<object> func)
+		{
+			var culture = System.Globalization.CultureInfo.InvariantCulture;
+			var flags =
+				System.Reflection.BindingFlags.CreateInstance |
+				System.Reflection.BindingFlags.Instance |
+				System.Reflection.BindingFlags.NonPublic;
+			var args = new object[] { func };
+			var function = (Callable)Activator.CreateInstance(typeof(Callable<>).MakeGenericType(type), flags, null, args, culture);
+			return function.Invoke();
+		}
+
+		/*public static object Call<T>(Func<T> func)
+		{
+			Func<object> f = Value.UpCast(() => func());
+			return Invoke(default(T), f);
+		}*/
+
 		public static Value<T> Map<T>(T value)
 		{
 			return default(Value<T>);
