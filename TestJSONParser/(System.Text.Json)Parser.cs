@@ -37,7 +37,13 @@ using System.Text;
 
 namespace System.Text.Json
 {
-	public delegate Func<R> Reviver<T, R>(Type outer, object key, T value);
+	public delegate Func<TResult> Reviver<TValue, TResult>(Outer outer, TValue value);
+
+    public struct Outer
+    {
+        public readonly Type Type; public readonly object Key;
+        public Outer(Type type, object key) { Type = type; Key = key; }
+    }
 
 	public class ParserSettings
 	{
@@ -50,12 +56,30 @@ namespace System.Text.Json
 		private const char NEXT = (char)0;
 		private const int LSIZE = 4096;
 
+        internal class Cache<TKey, TValue> : Dictionary<TKey, TValue>
+        {
+            internal bool Get(TKey key, out TValue value)
+            {
+                bool found;
+                value = ((found = ContainsKey(key)) ? this[key] : default(TValue));
+                return found;
+            }
+
+            internal TValue Set(TKey key, TValue value)
+            {
+                if (!ContainsKey(key))
+                    Add(key, value);
+                return value;
+            }
+        }
+
 		internal class Phrase
 		{
 			private static readonly IDictionary<char, char> ESC = new Dictionary<char, char>();
 
-			private ParserSettings config;
-			private System.Collections.Hashtable rtti;
+            private Cache<Type, Cache<string, object>> rtti;
+            private Delegate[] revs;
+            private ParserSettings cfg;
 			private System.IO.StreamReader str;
 			private string txt;
 			private bool ids;
@@ -82,12 +106,13 @@ namespace System.Text.Json
 				ESC['t'] = '\t';
 			}
 
-			internal Phrase(ParserSettings settings, object input)
+			internal Phrase(ParserSettings settings, object input, Delegate[] revivers)
 			{
-				config = (settings ?? DefaultSettings);
-				rtti = new System.Collections.Hashtable();
-				ids = config.AcceptIdentifiers;
-				lsz = (((lsz = config.LiteralBufferSize) > 0) ? lsz : LSIZE);
+                rtti = new Cache<Type, Cache<string, object>>();
+                revs = (Delegate[])(revivers ?? new Delegate[] { }).Clone();
+				cfg = (settings ?? DefaultSettings);
+				ids = cfg.AcceptIdentifiers;
+				lsz = (((lsz = cfg.LiteralBufferSize) > 0) ? lsz : LSIZE);
 
 				str = (input as System.IO.StreamReader);
 				txt = (input as string);
@@ -136,19 +161,21 @@ namespace System.Text.Json
 						sb = new StringBuilder(new String(cs, 0, ci)).Append(c);
 			}
 
-			private System.Collections.Hashtable Known(Type type)
+			private Cache<string, object> Known(Type type)
 			{
-				return (System.Collections.Hashtable)(!rtti.ContainsKey(type) ? (rtti[type] = new System.Collections.Hashtable()) : rtti[type]);
+                Cache<string, object> data;
+				return (!rtti.Get(type, out data) ? rtti.Set(type, new Cache<string, object>()) : data);
 			}
 
-			private object Typed(object obj, System.Collections.Hashtable hash, string key)
+			private object Typed(object obj, Cache<string, object> hash, string key)
 			{
-				if (!hash.ContainsKey(key))
+                object item;
+				if (!hash.Get(key, out item))
 				{
 					if (obj is Type)
 					{
 						var p = ((Type)obj).GetProperty(key);
-						return (((p != null) && p.CanWrite) ? (hash[key] = p) : null);
+						return (((p != null) && p.CanWrite) ? hash.Set(key, p) : null);
 					}
 					else
 					{
@@ -157,24 +184,24 @@ namespace System.Text.Json
 						while (--i >= 0)
 							if (a[i].Name == key)
 								break;
-						return ((i >= 0) ? (hash[key] = i) : null);
+						return ((i >= 0) ? hash.Set(key, i) : null);
 					}
 				}
 				else
-					return hash[key];
+					return item;
 			}
 
-			private Delegate Map<T>(Delegate[] revivers, Type outer, object key, T value)
+			private Delegate Map<TValue>(Outer outer, TValue value)
 			{
-				return Map(revivers, outer, key, typeof(T), value);
+				return Map(outer, typeof(TValue), value);
 			}
 
-			private Delegate Map(Delegate[] revivers, Type outer, object key, Type value, object obj)
+			private Delegate Map(Outer outer, Type value, object obj)
 			{
 				Delegate mapper = null;
 				if
 				(
-					(revivers != null) && (revivers.Length > 0) &&
+					(revs.Length > 0) &&
 					(
 						(
 							(obj != null) && value.IsAssignableFrom(obj.GetType())
@@ -184,9 +211,9 @@ namespace System.Text.Json
 						)
 					)
 				)
-					for (int i = 0; i < revivers.Length; i++)
+					for (int i = 0; i < revs.Length; i++)
 					{
-						var candidate = revivers[i];
+						var candidate = revs[i];
 						if
 						(
 							(candidate == null) ||
@@ -195,13 +222,18 @@ namespace System.Text.Json
 							!candidate.GetType().GetGenericArguments()[0].IsAssignableFrom(value)
 						)
 							continue;
-						if ((mapper = (revivers[i].DynamicInvoke(outer, key, obj) as Delegate)) != null)
+						if ((mapper = (candidate.DynamicInvoke(outer, obj) as Delegate)) != null)
 							break;
 					}
 				return mapper;
 			}
 
-			private object Word(Type type, params Delegate[] revivers)
+            private Outer Outer(Type type, object key)
+            {
+                return new Outer(type, key);
+            }
+
+			private object Word(Type type)
 			{
 				Delegate mapped;
 				switch (ch)
@@ -211,7 +243,7 @@ namespace System.Text.Json
 						if (data) read('r');
 						if (data) read('u');
 						if (data) read('e');
-						mapped = Map(revivers, type, null, true);
+						mapped = Map(Outer(type, null), true);
 						return ((mapped != null) ? mapped.DynamicInvoke() : true);
 					case 'f':
 						if (data) read('f');
@@ -219,20 +251,20 @@ namespace System.Text.Json
 						if (data) read('l');
 						if (data) read('s');
 						if (data) read('e');
-						mapped = Map(revivers, type, null, false);
+						mapped = Map(Outer(type, null), false);
 						return ((mapped != null) ? mapped.DynamicInvoke() : false);
 					case 'n':
 						if (data) read('n');
 						if (data) read('u');
 						if (data) read('l');
 						if (data) read('l');
-						mapped = Map(revivers, type, null, null as object);
+						mapped = Map(Outer(type, null), null as object);
 						return ((mapped != null) ? mapped.DynamicInvoke() : null);
 				}
 				throw Error(String.Format("Unexpected '{0}'", ch));
 			}
 
-			private object Number(Type type, params Delegate[] revivers)
+			private object Number(Type type)
 			{
 				double n;
 				sb = null;
@@ -269,11 +301,11 @@ namespace System.Text.Json
 					}
 				}
 				n = double.Parse((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-				var mapped = Map(revivers, type, null, n);
+				var mapped = Map(Outer(type, null), n);
 				return ((mapped != null) ? mapped.DynamicInvoke() : n);
 			}
 
-			private object Literal(Type type, object key, params Delegate[] revivers)
+			private object Literal(Type type, object key)
 			{
 				int hex, i, uffff;
 				string s;
@@ -287,7 +319,7 @@ namespace System.Text.Json
 						{
 							if (data) read(NEXT);
 							s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-							var mapped = Map(revivers, type, key, s);
+							var mapped = Map(Outer(type, key), s);
 							return ((mapped != null) ? mapped.DynamicInvoke() : s);
 						}
 						if (ch == '\\')
@@ -363,7 +395,7 @@ namespace System.Text.Json
 							else
 							{
 								s = ((sb != null) ? sb.ToString() : new String(cs, 0, ci));
-								var mapped = Map(revivers, type, key, s);
+								var mapped = Map(Outer(type, key), s);
 								return ((mapped != null) ? mapped.DynamicInvoke() : s);
 							}
 					}
@@ -371,24 +403,24 @@ namespace System.Text.Json
 				throw Error("Bad string");
 			}
 
-			private bool Realizes(Type given, Type generic)
+			private bool Realizes(Type type, Type generic)
 			{
-				var itfs = given.GetInterfaces();
+				var itfs = type.GetInterfaces();
 				foreach (var it in itfs)
 					if (it.IsGenericType && it.GetGenericTypeDefinition() == generic)
 						return true;
-				if (given.IsGenericType && given.GetGenericTypeDefinition() == generic)
+				if (type.IsGenericType && type.GetGenericTypeDefinition() == generic)
 					return true;
-				if (given.BaseType == null)
+				if (type.BaseType == null)
 					return false;
-				return Realizes(given.BaseType, generic);
+				return Realizes(type.BaseType, generic);
 			}
 
-			private object Object(Type type, params Delegate[] revivers)
+			private object Object(Type type)
 			{
 				type = (type ?? typeof(object));
 				bool isd = typeof(System.Collections.IDictionary).IsAssignableFrom(type);
-				bool ish = (isd || type.IsGenericType && Realizes(type, typeof(IDictionary<,>)));
+				bool ish = (isd || (type.IsGenericType && Realizes(type, typeof(IDictionary<,>))));
 				Type dkt = null, dvt = null;
 				if (ish && !isd)
 				{
@@ -434,7 +466,7 @@ namespace System.Text.Json
 					}
 					while (data)
 					{
-						string k = (Literal(type, typeof(string), revivers) as string);
+						string k = (Literal(type, typeof(string)) as string);
 						object m;
 						if (!obj && (k == null))
 							throw Error("Bad object key");
@@ -449,33 +481,33 @@ namespace System.Text.Json
 							{
 								var p = (System.Reflection.PropertyInfo)m;
 								var t = p.PropertyType;
-								var v = Parse(t, revivers);
-								var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
+								var v = Compile(t);
+								var mapped = Map(Outer(type, null), ((v != null) ? v.GetType() : typeof(object)), v);
 								p.SetValue(o, ((mapped != null) ? mapped.DynamicInvoke() : v), null);
 							}
 							else
 							{
 								int i = (int)m;
 								var t = cta[i].ParameterType;
-								var v = Parse(t, revivers);
-								var mapped = Map(revivers, type, null, ((v != null) ? v.GetType() : typeof(object)), v);
+								var v = Compile(t);
+								var mapped = Map(Outer(type, null), ((v != null) ? v.GetType() : typeof(object)), v);
 								arg[i] = ((mapped != null) ? mapped.DynamicInvoke() : v);
 							}
 						}
 						else if (d != null)
 						{
-							var v = Parse(dvt, revivers);
-							var mapped = Map(revivers, d.GetType(), dkt, k);
+							var v = Compile(dvt);
+							var mapped = Map(Outer(d.GetType(), dkt), k);
 							var h = ((mapped != null) ? mapped.DynamicInvoke() : k);
 							if (h == null)
 								throw Error("Bad key");
 							if (d.Contains(h))
 								throw Error(String.Format("Duplicate key \"{0}\"", h));
-							mapped = Map(revivers, dvt, null, ((v != null) ? v.GetType() : typeof(object)), v);
+							mapped = Map(Outer(dvt, null), ((v != null) ? v.GetType() : typeof(object)), v);
 							d[h] = ((mapped != null) ? mapped.DynamicInvoke() : v);
 						}
 						else
-							Parse(null as Type);
+							Compile(null as Type);
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (ch == '}')
@@ -491,7 +523,7 @@ namespace System.Text.Json
 				throw Error("Bad object");
 			}
 
-			private System.Collections.IEnumerable Array(Type type, params Delegate[] revivers)
+			private System.Collections.IEnumerable Array(Type type)
 			{
 				var isa = type.IsArray;
 				var ie = (isa || (type.GetInterfaces().Where(i => typeof(System.Collections.IEnumerable).IsAssignableFrom(i)).FirstOrDefault() != null));
@@ -510,7 +542,7 @@ namespace System.Text.Json
 					}
 					while (data)
 					{
-						l.Add(Parse(et, revivers));
+						l.Add(Compile(et));
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (ch == ']')
@@ -526,7 +558,7 @@ namespace System.Text.Json
 				throw Error("Bad array");
 			}
 
-			private object Parse(Type type, params Delegate[] revivers)
+			private object Compile(Type type)
 			{
 				type = (type ?? typeof(object));
 				while (data && (ch <= ' ')) // Spaces
@@ -534,33 +566,33 @@ namespace System.Text.Json
 				switch (ch)
 				{
 					case '{':
-						return Object(type, revivers);
+						return Object(type);
 					case '[':
-						return Array(type, revivers);
+						return Array(type);
 					case '"':
-						return Literal(type, null, revivers);
+						return Literal(type, null);
 					case '-':
-						return Number(type, revivers);
+						return Number(type);
 					default:
-						return ((ch >= '0') && (ch <= '9') ? Number(type, revivers) : Word(type, revivers));
+						return ((ch >= '0') && (ch <= '9') ? Number(type) : Word(type));
 				}
 			}
 
-			internal object Parse(Type to, Type from, params Delegate[] revivers)
+			internal object Compile(Type to, Type from)
 			{
-				var obj = Parse(from, revivers);
+				var obj = Compile(from);
 				while (data && (ch <= ' ')) // Spaces
 					read(NEXT);
 				if (data)
 					throw Error("Unexpected content");
-				var mapped = Map(revivers, to, null, ((obj != null) ? obj.GetType() : typeof(object)), obj);
+				var mapped = Map(Outer(to, null), ((obj != null) ? obj.GetType() : typeof(object)), obj);
 				return ((mapped != null) ? mapped.DynamicInvoke() : obj);
 			}
 		}
 
-		protected R ParseTo<R>(object input, ParserSettings settings, Type from, params Delegate[] revivers)
+		protected TResult CreateAs<TResult>(object input, ParserSettings settings, Type from, params Delegate[] revivers)
 		{
-			return (R)new Phrase((settings ?? Settings), input).Parse(typeof(R), from, revivers);
+			return (TResult)new Phrase((settings ?? Settings), input, revivers).Compile(typeof(TResult), from);
 		}
 
 		public static ParserSettings DefaultSettings
@@ -592,130 +624,130 @@ namespace System.Text.Json
 			return this;
 		}
 
-		public R Parse<R>(string text)
+		public TResult Parse<TResult>(string text)
 		{
-			return ParseTo<R>(text, null, null);
+			return CreateAs<TResult>(text, null, null);
 		}
 
-		public R Parse<R>(string text, ParserSettings settings)
+		public TResult Parse<TResult>(string text, ParserSettings settings)
 		{
-			return ParseTo<R>(text, settings, null);
+			return CreateAs<TResult>(text, settings, null);
 		}
 
-		public R Parse<R>(System.IO.Stream stream)
+		public TResult Parse<TResult>(System.IO.Stream stream)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, null, null);
+				return CreateAs<TResult>(reader, null, null);
 			}
 		}
 
-		public R Parse<R>(System.IO.Stream stream, ParserSettings settings)
+		public TResult Parse<TResult>(System.IO.Stream stream, ParserSettings settings)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, settings, null);
+				return CreateAs<TResult>(reader, settings, null);
 			}
 		}
 
-		public R Parse<R>(System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
+		public TResult Parse<TResult>(System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, settings, null, revivers);
+				return CreateAs<TResult>(reader, settings, null, revivers);
 			}
 		}
 
-		public R Parse<R>(System.IO.StreamReader reader)
+		public TResult Parse<TResult>(System.IO.StreamReader reader)
 		{
-			return ParseTo<R>(reader, null, null);
+			return CreateAs<TResult>(reader, null, null);
 		}
 
-		public R Parse<R>(System.IO.StreamReader reader, params Delegate[] revivers)
+		public TResult Parse<TResult>(System.IO.StreamReader reader, params Delegate[] revivers)
 		{
-			return ParseTo<R>(reader, null, null, revivers);
+			return CreateAs<TResult>(reader, null, null, revivers);
 		}
 
-		public R Parse<R>(System.IO.StreamReader reader, ParserSettings settings)
+		public TResult Parse<TResult>(System.IO.StreamReader reader, ParserSettings settings)
 		{
-			return ParseTo<R>(reader, settings, null);
+			return CreateAs<TResult>(reader, settings, null);
 		}
 
-		public R Parse<R>(System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
+		public TResult Parse<TResult>(System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
 		{
-			return ParseTo<R>(reader, settings, null, revivers);
+			return CreateAs<TResult>(reader, settings, null, revivers);
 		}
 
-		public R Parse<T, R>(string text, T prototype)
+		public TResult Parse<TValue, TResult>(string text, TValue prototype)
 		{
-			return ParseTo<R>(text, null, typeof(T));
+			return CreateAs<TResult>(text, null, typeof(TValue));
 		}
 
-		public R Parse<T, R>(string text, T prototype, params Delegate[] revivers)
+		public TResult Parse<TValue, TResult>(string text, TValue prototype, params Delegate[] revivers)
 		{
-			return ParseTo<R>(text, null, typeof(T), revivers);
+			return CreateAs<TResult>(text, null, typeof(TValue), revivers);
 		}
 
-		public R Parse<T, R>(string text, ParserSettings settings, T prototype)
+		public TResult Parse<TValue, TResult>(string text, ParserSettings settings, TValue prototype)
 		{
-			return ParseTo<R>(text, settings, typeof(T));
+			return CreateAs<TResult>(text, settings, typeof(TValue));
 		}
 
-		public R Parse<T, R>(string text, ParserSettings settings, T prototype, params Delegate[] revivers)
+		public TResult Parse<TValue, TResult>(string text, ParserSettings settings, TValue prototype, params Delegate[] revivers)
 		{
-			return ParseTo<R>(text, settings, typeof(T), revivers);
+			return CreateAs<TResult>(text, settings, typeof(TValue), revivers);
 		}
 
-		public R Parse<T, R>(System.IO.Stream stream, T prototype)
+		public TResult Parse<TValue, TResult>(System.IO.Stream stream, TValue prototype)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, null, typeof(T));
+				return CreateAs<TResult>(reader, null, typeof(TValue));
 			}
 		}
 
-		public R Parse<T, R>(System.IO.Stream stream, T prototype, params Delegate[] revivers)
+		public TResult Parse<TValue, TResult>(System.IO.Stream stream, TValue prototype, params Delegate[] revivers)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, null, typeof(T), revivers);
+				return CreateAs<TResult>(reader, null, typeof(TValue), revivers);
 			}
 		}
 
-		public R Parse<T, R>(System.IO.Stream stream, ParserSettings settings, T prototype)
+		public TResult Parse<TValue, TResult>(System.IO.Stream stream, ParserSettings settings, TValue prototype)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, settings, typeof(T));
+				return CreateAs<TResult>(reader, settings, typeof(TValue));
 			}
 		}
 
-		public R Parse<T, R>(System.IO.Stream stream, ParserSettings settings, T prototype, params Delegate[] revivers)
+		public TResult Parse<TValue, TResult>(System.IO.Stream stream, ParserSettings settings, TValue prototype, params Delegate[] revivers)
 		{
 			using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
 			{
-				return ParseTo<R>(reader, settings, typeof(T), revivers);
+				return CreateAs<TResult>(reader, settings, typeof(TValue), revivers);
 			}
 		}
 
-		public R Parse<T, R>(System.IO.StreamReader reader, T prototype)
+		public TResult Parse<TValue, TResult>(System.IO.StreamReader reader, TValue prototype)
 		{
-			return ParseTo<R>(reader, null, typeof(T));
+			return CreateAs<TResult>(reader, null, typeof(TValue));
 		}
 
-		public R Parse<T, R>(System.IO.StreamReader reader, ParserSettings settings, T prototype)
+		public TResult Parse<TValue, TResult>(System.IO.StreamReader reader, ParserSettings settings, TValue prototype)
 		{
-			return ParseTo<R>(reader, settings, typeof(T));
+			return CreateAs<TResult>(reader, settings, typeof(TValue));
 		}
 
-		public R Parse<T, R>(System.IO.StreamReader reader, T prototype, params Delegate[] revivers)
+		public TResult Parse<TValue, TResult>(System.IO.StreamReader reader, TValue prototype, params Delegate[] revivers)
 		{
-			return ParseTo<R>(reader, null, typeof(T), revivers);
+			return CreateAs<TResult>(reader, null, typeof(TValue), revivers);
 		}
 
-		public R Parse<T, R>(System.IO.StreamReader reader, ParserSettings settings, T prototype, params Delegate[] revivers)
+		public TResult Parse<TValue, TResult>(System.IO.StreamReader reader, ParserSettings settings, TValue prototype, params Delegate[] revivers)
 		{
-			return ParseTo<R>(reader, settings, typeof(T), revivers);
+			return CreateAs<TResult>(reader, settings, typeof(TValue), revivers);
 		}
 
 		public ParserSettings Settings { get; set; }
