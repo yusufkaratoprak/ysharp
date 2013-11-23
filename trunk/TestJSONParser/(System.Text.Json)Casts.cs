@@ -50,7 +50,7 @@ namespace System.Text.Json
 			internal readonly Func<object> func;
 			internal Callable(Func<object> func) { System.Linq.Expressions.Expression<Func<object>> expr = () => func(); this.func = expr.Compile(); }
             internal override object Invoke() { return ((Func<TResult>)func())(); }
-            internal override object Invoke<T1>(T1 arg1) { throw new NotImplementedException(); }
+            internal override object Invoke<A>(A a) { throw new NotImplementedException(); }
         }
 
         internal class Callable<T1, TResult> : Callable
@@ -75,14 +75,12 @@ namespace System.Text.Json
 
         public static Func<object> UpCast<TResult>(Func<TResult> func)
 		{
-            Func<TResult> f = () => func();
-			return DoUpCast(f);
+			return DoUpCast(func);
 		}
 
         public static Func<T1, object> UpCast<T1, TResult>(Func<T1, TResult> func)
         {
-            Func<T1, TResult> f = (a1) => func(a1);
-            return DoUpCast(f);
+            return DoUpCast(func);
         }
 
         public static object Call(Type result, Func<object> func)
