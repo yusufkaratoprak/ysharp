@@ -1,4 +1,4 @@
-﻿//#define WITH_HUGE_TEST
+//#define WITH_HUGE_TEST
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,23 +19,21 @@ namespace TestJSONParser
 		internal static class Sample_Revivers
 		{
 			internal static readonly Reviver<double, int> ToInteger =
-				Value.Map(default(double), default(int)).
+				JSON.Map(default(double), default(int)).
 					Using
 					(
-						(outer, key, value) =>
-							((outer == typeof(int)) && (key == null)) ?
-								(Func<int>)
+						(outer, value) =>
+							((outer.Type == typeof(int)) && (outer.Key == null)) ? (Func<int>)
 								(() => Convert.ToInt32(value)) :
 								null
 					);
 
 			internal static readonly Reviver<string, int> Person_Codes_Key =
-				Value.Map(default(string), default(int)).
+				JSON.Map(default(string), default(int)).
 					Using
 					(
-						(outer, key, value) =>
-							(key == typeof(int)) ?
-								(Func<int>)
+						(outer, value) =>
+							(outer.Key == typeof(int)) ? (Func<int>)
 								(() => int.Parse((value[0] != '$') ? value : value.Substring(1))) :
 								null
 					);
@@ -50,7 +48,7 @@ namespace TestJSONParser
 			string testerr;
 			try
 			{
-				testerr = Value.Map("").FromJson("");
+				testerr = JSON.Map("").FromJson("");
 			}
 			catch (Exception ex)
 			{
@@ -58,20 +56,20 @@ namespace TestJSONParser
 			}
 
 			// Basic, common atom cases types:
-			string test0 = Value.Map("").FromJson("\"\"");
-			string test1 = Value.Map("").FromJson("\" \"");
-			string test2 = Value.Map("").FromJson("\"\\ta\"");
-			double test3 = Value.Map(0.0).FromJson("123.456");
-			double test4 = Value.Map(0.0).FromJson("789");
-			string test5 = Value.Map("").FromJson("\"\"");
-			object[] test6 = Value.Map(null as object[]).FromJson("[]");
-			double[] test7 = Value.Map(null as double[]).FromJson("[1,2,3]");
-			object test8 = Value.Map(null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
+			string test0 = JSON.Map("").FromJson("\"\"");
+			string test1 = JSON.Map("").FromJson("\" \"");
+			string test2 = JSON.Map("").FromJson("\"\\ta\"");
+			double test3 = JSON.Map(0.0).FromJson("123.456");
+			double test4 = JSON.Map(0.0).FromJson("789");
+			string test5 = JSON.Map("").FromJson("\"\"");
+			object[] test6 = JSON.Map(null as object[]).FromJson("[]");
+			double[] test7 = JSON.Map(null as double[]).FromJson("[1,2,3]");
+			object test8 = JSON.Map(null as object).FromJson("{\"First\":\"John\",\"Last\":\"Smith\"}");
 
 			// Let's go anonymous types, now:
-			var test9 = Value.Map(new { Id = "" }).FromJson("{\"Id\":\"Something\"}");
-			var test10 = Value.Map(new[] { new { Id = .0 } }).FromJson("[{\"Id\":1}, {\"Id\":2}]");
-			var test11 = Value.Map(new { ZipCode = 0 }).
+			var test9 = JSON.Map(new { Id = "" }).FromJson("{\"Id\":\"Something\"}");
+			var test10 = JSON.Map(new[] { new { Id = .0 } }).FromJson("[{\"Id\":1}, {\"Id\":2}]");
+			var test11 = JSON.Map(new { ZipCode = 0 }).
 				FromJson
 				(
 					" { ZipCode: 75015 } ",
@@ -113,12 +111,11 @@ namespace TestJSONParser
 			// Reviver that must be in this local scope,
 			// because of the anonymous type it uses:
 			var ToDateTime =
-				Value.Map(DATE_JSON, default(DateTime)).
+				JSON.Map(DATE_JSON, default(DateTime)).
 					Using
 					(
-						(outer, key, value) =>
-							((outer == typeof(DateTime)) && (key == null)) ?
-								(Func<DateTime>)
+						(outer, value) =>
+							((outer.Type == typeof(DateTime)) && (outer.Key == null)) ? (Func<DateTime>)
 								(
 									() =>
 										(value != null) ?
@@ -128,7 +125,7 @@ namespace TestJSONParser
 								null
 					);
 
-			DateTime dateTime = Value.Map(DATE_JSON, default(DateTime)).
+			DateTime dateTime = JSON.Map(DATE_JSON, default(DateTime)).
 				FromJson
 				(
 					default(DateTime),
@@ -166,7 +163,7 @@ namespace TestJSONParser
 			Console.WriteLine("Basic Tests - Person");
 			Console.WriteLine();
 
-			Person person = Value.Map(null as Person).
+			Person person = JSON.Map(null as Person).
 				FromJson
 				(
 					@"
@@ -229,7 +226,7 @@ namespace TestJSONParser
 				Codes = (null as IDictionary<int, string>)
 			};
 
-			var person = Value.Map(PERSON_JSON).
+			var person = JSON.Map(PERSON_JSON).
 				FromJson
 				(
 					@"
@@ -298,28 +295,27 @@ namespace TestJSONParser
 				};
 
 				// And as easy as that, step #2:
-				var parsed = Value.Map(YOUTUBE_JSON).
+				var parsed = JSON.Map(YOUTUBE_JSON).
 					FromJson
 					(
 						stream,
 					// Needed for Youtube's JSON values such as "uploaded", "updated", etc:
-						Value.Map(default(string), default(DateTime)).
+						JSON.Map(default(string), default(DateTime)).
 							Using
 							(
-								(outer, key, value) =>
+								(outer, value) =>
 								(
-									(outer == typeof(DateTime)) &&
-									(key == null)
-								) ?
-									(Func<DateTime>)
-											(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
-											null
+									(outer.Type == typeof(DateTime)) &&
+									(outer.Key == null)
+								) ? (Func<DateTime>)
+									(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
+									null
 							),
 					// Needed to turn Youtube's JSON keys from lower camel case to Pascal case:
-						Value.Map(default(string), default(string)).
+						JSON.Map(default(string), default(string)).
 						Using
 						(
-							(outer, key, value) =>
+							(outer, value) =>
 								(
 									new[]
 									{
@@ -327,12 +323,11 @@ namespace TestJSONParser
 										YOUTUBE_JSON.Data.GetType(),
 										YOUTUBE_JSON.Data.Items[0].GetType(),
 										YOUTUBE_JSON.Data.Items[0].Player.GetType()
-									}.Contains(outer) &&
-									(key == typeof(string))
-								) ?
-										(Func<string>)
-										(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
-										null
+									}.Contains(outer.Type) &&
+									(outer.Key == typeof(string))
+								) ? (Func<string>)
+									(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
+									null
 							)
 					);
 
@@ -367,7 +362,7 @@ namespace TestJSONParser
 
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start = DateTime.Now;
-			var obj = Value.Map(null as object).FromJson(small);
+			var obj = JSON.Map(null as object).FromJson(small);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
 			Console.WriteLine();
 			Console.Write("Press a key...");
@@ -423,7 +418,7 @@ namespace TestJSONParser
 			Console.WriteLine();
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			DateTime start2 = DateTime.Now;
-			var myObj = Value.Map(null as object).FromJson(json);
+			var myObj = JSON.Map(null as object).FromJson(json);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start2).TotalMilliseconds);
 			Console.WriteLine();
 
