@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
@@ -87,27 +87,25 @@ namespace TestJSONParser
 			};
 			// We use this "new[] { Album }" to (strongly) type-shape what we're interested in,
 			// thus, by a prototype array of our previous anonymous type (the one held @ Album)
-			var albums = Value.Map(new[] { Album }).
+			var albums = JSON.Map(new[] { Album }).
 				FromJson
 				(
 					jsonString, // Don't forget the revivers, to map doubles into ints, and strings into DateTimes:
 
-					Value.Map(default(double), default(int)).
+					JSON.Map(default(double), default(int)).
 						Using
 						(
-							(outer, key, value) =>
-								((outer == typeof(int)) && (key == null)) ?
-									(Func<int>)
-									(() => Convert.ToInt32(value)) :
+							(outer, value) =>
+                                ((outer.Type == typeof(int)) && (outer.Key == null)) ? (Func<int>)
+							        (() => Convert.ToInt32(value)) :
 									null
 						),
 
-					Value.Map(default(string), default(DateTime)).
+					JSON.Map(default(string), default(DateTime)).
 						Using
 						(
-							(outer, key, value) =>
-								((outer == typeof(DateTime)) && (key == null)) ?
-									(Func<DateTime>)
+							(outer, value) =>
+                                ((outer.Type == typeof(DateTime)) && (outer.Key == null)) ? (Func<DateTime>)
 									(() => DateTime.Parse(value)) :
 									null
 						)
