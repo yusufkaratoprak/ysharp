@@ -406,7 +406,7 @@ namespace TestJSONParser
 					FromJson
 					(
 						stream,
-					// Needed for Youtube's JSON values such as "uploaded", "updated", etc:
+						// Needed for Youtube's JSON values such as "uploaded", "updated", etc:
 						JSON.Map(default(string)).
 							Using
 							(
@@ -415,10 +415,10 @@ namespace TestJSONParser
 									(outer.Key == null) &&
 									(type == typeof(DateTime))
 								) ? (Func<object>)
-									(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : DateTime.Now)) :
+									(() => (!String.IsNullOrEmpty(value) ? DateTime.Parse(value) : default(DateTime))) :
 									null
 							),
-					// Needed to turn keys from lower camel case to Pascal case:
+						// Needed to turn keys from lower camel case to Pascal case:
 						Sample_Revivers.CamelCaseToPascalCase
 					);
 
@@ -522,7 +522,7 @@ namespace TestJSONParser
 		{
 			Console.Clear();
 			string json = System.IO.File.ReadAllText(FATHERS_TEST_FILE_PATH);
-			Console.WriteLine("Fathers Test (Strongly typed) - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
+			Console.WriteLine("Fathers Test (strongly typed) - JSON parse... {0} kb ({1} mb)", (int)(json.Length / 1024), (int)(json.Length / (1024 * 1024)));
 			Console.WriteLine();
 			Console.WriteLine("\tParsed by {0} in...", typeof(Parser).FullName);
 			Console.WriteLine();
@@ -531,16 +531,7 @@ namespace TestJSONParser
 				FromJson
 				(
 					json,
-				// Needed to turn keys from lower camel case to Pascal case:
-					JSON.Map(default(string)).
-					Using
-					(
-						(outer, type, value) =>
-							(outer.Key == typeof(string)) ?
-								(Func<object>)
-								(() => String.Concat((char)(value[0] - 32), value.Substring(1))) :
-								null
-					),
+					Sample_Revivers.CamelCaseToPascalCase,
 					Sample_Revivers.DoubleToInteger
 				);
 			Console.WriteLine("\t\t{0} ms", (int)DateTime.Now.Subtract(start).TotalMilliseconds);
