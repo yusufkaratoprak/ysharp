@@ -7,24 +7,23 @@ using System.Text.Json;
 
 namespace TestJSONParser
 {
-	class Program
+    class Program
 	{
 		static void Main(string[] args)
 		{
-			/*Hmm...
-            Func<int> foo = () => 123;
-            Func<object> up1 = JSON.UpCast(() => foo());
-            object n = JSON.Call(typeof(int), up1);*/
-
+            BasicTests.CastTests();
 			BasicTests.MostBasicTest();
 			BasicTests.DateTimeTest();
 			BasicTests.PersonTest();
-			BasicTests.PersonAnonTest();
-			BasicTests.Top15Youtube2013Test();
+            BasicTests.PersonAnonymousTest();
+            BasicTests.PolymorphicKeyDrivenTest();
 			BasicTests.SmallTest();
-			BasicTests.HugeTest();
-			BasicTests.FathersTest();
-			OtherTests.RickStrahlsDynJSONTests();
+            BasicTests.Top15Youtube2013Test();
+            BasicTests.FathersTest();
+            BasicTests.FathersTestTyped();
+            //BasicTests.FathersCompactTestTyped();
+            BasicTests.HugeTest();
+            OtherTests.RickStrahlsDynJSONTests();
 		}
 	}
 }
