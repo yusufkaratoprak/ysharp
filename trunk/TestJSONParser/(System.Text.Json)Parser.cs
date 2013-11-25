@@ -37,26 +37,26 @@ using System.Text;
 
 namespace System.Text.Json
 {
-    public struct Outer
-    {
-        public readonly Type Type;
-        public readonly IDictionary<string, object> Hash;
-        public readonly object Key;
+	public struct Outer
+	{
+		public readonly Type Type;
+		public readonly IDictionary<string, object> Hash;
+		public readonly object Key;
 
-        public Outer(Type type, object key) : this(type, null, key) { }
-        public Outer(Type type, IDictionary<string, object> hash, object key)
-        {
-            Type = type;
-            Hash = hash;
-            Key = key;
-        }
-    }
+		public Outer(Type type, object key) : this(type, null, key) { }
+		public Outer(Type type, IDictionary<string, object> hash, object key)
+		{
+			Type = type;
+			Hash = hash;
+			Key = key;
+		}
+	}
 
 	public class ParserSettings
 	{
 		public bool AcceptIdentifiers { get; set; }
-        public bool WithoutObjectHash { get; set; }
-        public int LiteralBufferSize { get; set; }
+		public bool WithoutObjectHash { get; set; }
+		public int LiteralBufferSize { get; set; }
 	}
 
 	public class Parser
@@ -64,63 +64,63 @@ namespace System.Text.Json
 		private const char NEXT = (char)0;
 		private const int LSIZE = 4096;
 
-        internal class Cache<TKey, TValue> : Dictionary<TKey, TValue>
-        {
-            internal bool Get(TKey key, out TValue value)
-            {
-                bool found;
-                value = ((found = ContainsKey(key)) ? (TValue)this[key] : default(TValue));
-                return found;
-            }
+		internal class Cache<TKey, TValue> : Dictionary<TKey, TValue>
+		{
+			internal bool Get(TKey key, out TValue value)
+			{
+				bool found;
+				value = ((found = ContainsKey(key)) ? (TValue)this[key] : default(TValue));
+				return found;
+			}
 
-            internal TValue Set(TKey key, TValue value)
-            {
-                if (!ContainsKey(key))
-                    Add(key, value);
-                return value;
-            }
-        }
+			internal TValue Set(TKey key, TValue value)
+			{
+				if (!ContainsKey(key))
+					Add(key, value);
+				return value;
+			}
+		}
 
-        internal class PropInfo
-        {
-            private readonly Action<object, object> DSet;
-            internal readonly System.Reflection.PropertyInfo Data;
+		internal class PropInfo
+		{
+			private readonly Action<object, object> DSet;
+			internal readonly System.Reflection.PropertyInfo Data;
 
-            internal PropInfo(System.Reflection.PropertyInfo prop)
-            {
-                Data = prop;
-                DSet = ISet();
-            }
+			internal PropInfo(System.Reflection.PropertyInfo prop)
+			{
+				Data = prop;
+				DSet = ISet();
+			}
 
-            private Action<object, object> ISet()
-            {
-                var instance = System.Linq.Expressions.Expression.Parameter(typeof(object), "instance");
-                var value = System.Linq.Expressions.Expression.Parameter(typeof(object), "value");
-                System.Linq.Expressions.UnaryExpression instanceCast = (!Data.DeclaringType.IsValueType) ? System.Linq.Expressions.Expression.TypeAs(instance, Data.DeclaringType) : System.Linq.Expressions.Expression.Convert(instance, Data.DeclaringType);
-                System.Linq.Expressions.UnaryExpression valueCast = (!Data.PropertyType.IsValueType) ? System.Linq.Expressions.Expression.TypeAs(value, Data.PropertyType) : System.Linq.Expressions.Expression.Convert(value, Data.PropertyType);
-                return System.Linq.Expressions.Expression.Lambda<Action<object, object>>(System.Linq.Expressions.Expression.Call(instanceCast, Data.GetSetMethod(), valueCast), new System.Linq.Expressions.ParameterExpression[] { instance, value }).Compile();
-            }
+			private Action<object, object> ISet()
+			{
+				var instance = System.Linq.Expressions.Expression.Parameter(typeof(object), "instance");
+				var value = System.Linq.Expressions.Expression.Parameter(typeof(object), "value");
+				System.Linq.Expressions.UnaryExpression instanceCast = (!Data.DeclaringType.IsValueType) ? System.Linq.Expressions.Expression.TypeAs(instance, Data.DeclaringType) : System.Linq.Expressions.Expression.Convert(instance, Data.DeclaringType);
+				System.Linq.Expressions.UnaryExpression valueCast = (!Data.PropertyType.IsValueType) ? System.Linq.Expressions.Expression.TypeAs(value, Data.PropertyType) : System.Linq.Expressions.Expression.Convert(value, Data.PropertyType);
+				return System.Linq.Expressions.Expression.Lambda<Action<object, object>>(System.Linq.Expressions.Expression.Call(instanceCast, Data.GetSetMethod(), valueCast), new System.Linq.Expressions.ParameterExpression[] { instance, value }).Compile();
+			}
 
-            internal void Set(object instance, object value)
-            {
-                DSet(instance, value);
-            }
-        }
+			internal void Set(object instance, object value)
+			{
+				DSet(instance, value);
+			}
+		}
 
-        internal class Phrase
+		internal class Phrase
 		{
 			private static readonly IDictionary<char, char> ESC = new Dictionary<char, char>();
 
-            private Cache<Type, Cache<string, PropInfo>> props;
-            private Cache<Type, Cache<string, int>> anons;
-            private Cache<Delegate, JSON.Callee> rces;
-            private Cache<Type, Type> arts;
-            private Delegate[] revs;
-            private ParserSettings cfg;
+			private Cache<Type, Cache<string, PropInfo>> props;
+			private Cache<Type, Cache<string, int>> anons;
+			private Cache<Delegate, JSON.Callee> rces;
+			private Cache<Type, Type> arts;
+			private Delegate[] revs;
+			private ParserSettings cfg;
 			private System.IO.StreamReader str;
 			private string txt;
 			private bool ids;
-            private bool noh;
+			private bool noh;
 			private int lsz;
 			private int len;
 			private StringBuilder sb;
@@ -146,14 +146,14 @@ namespace System.Text.Json
 
 			internal Phrase(ParserSettings settings, object input, Delegate[] revivers)
 			{
-                props = new Cache<Type, Cache<string, PropInfo>>();
-                anons = new Cache<Type, Cache<string, int>>();
-                rces = new Cache<Delegate, JSON.Callee>();
-                arts = new Cache<Type, Type>();
-                revs = (Delegate[])(revivers ?? new Delegate[] { }).Clone();
+				props = new Cache<Type, Cache<string, PropInfo>>();
+				anons = new Cache<Type, Cache<string, int>>();
+				rces = new Cache<Delegate, JSON.Callee>();
+				arts = new Cache<Type, Type>();
+				revs = (Delegate[])(revivers ?? new Delegate[] { }).Clone();
 				cfg = (settings ?? DefaultSettings);
 				ids = cfg.AcceptIdentifiers;
-                noh = cfg.WithoutObjectHash;
+				noh = cfg.WithoutObjectHash;
 				lsz = (((lsz = cfg.LiteralBufferSize) > 0) ? lsz : LSIZE);
 
 				str = (input as System.IO.StreamReader);
@@ -205,107 +205,107 @@ namespace System.Text.Json
 
 			private void Known(Type type, out Cache<string, PropInfo> pi, out Cache<string, int> ti)
 			{
-                if (!props.Get(type, out pi))
-                    pi = props.Set(type, new Cache<string, PropInfo>());
-                if (!anons.Get(type, out ti))
-                    ti = anons.Set(type, new Cache<string, int>());
+				if (!props.Get(type, out pi))
+					pi = props.Set(type, new Cache<string, PropInfo>());
+				if (!anons.Get(type, out ti))
+					ti = anons.Set(type, new Cache<string, int>());
 			}
 
 			private object Typed(object obj, object hash, string key)
 			{
 				if (obj is Type)
 				{
-                    var rpi = (Cache<string, PropInfo>)hash;
-                    PropInfo pi;
-                    if (!rpi.Get(key, out pi))
-                    {
-                        var type = (Type)obj;
-                        var prop = type.GetProperty(key);
-                        pi = rpi.Set(key, ((prop != null) && prop.CanWrite) ? new PropInfo(prop) : null);
-                    }
-                    return pi;
+					var rpi = (Cache<string, PropInfo>)hash;
+					PropInfo pi;
+					if (!rpi.Get(key, out pi))
+					{
+						var type = (Type)obj;
+						var prop = type.GetProperty(key);
+						pi = rpi.Set(key, ((prop != null) && prop.CanWrite) ? new PropInfo(prop) : null);
+					}
+					return pi;
 				}
 				else
 				{
-                    var rti = (Cache<string, int>)hash;
-                    int k;
-                    if (!rti.Get(key, out k))
-                    {
-                        var a = (System.Reflection.ParameterInfo[])obj;
-                        int i = a.Length;
-                        while (--i >= 0)
-                        {
-                            rti.Set(a[i].Name, i + 1);
-                            if (key == a[i].Name)
-                                k = (i + 1);
-                        }
-                    }
-                    return k;
+					var rti = (Cache<string, int>)hash;
+					int k;
+					if (!rti.Get(key, out k))
+					{
+						var a = (System.Reflection.ParameterInfo[])obj;
+						int i = a.Length;
+						while (--i >= 0)
+						{
+							rti.Set(a[i].Name, i + 1);
+							if (key == a[i].Name)
+								k = (i + 1);
+						}
+					}
+					return k;
 				}
 			}
 
-            private Func<object> Map<TValue>(Outer outer, Type type, TValue value)
-            {
-                return Map(outer, typeof(TValue), type, value); 
-            }
-
-            private Func<object> Map(Outer outer, Type match, Type type, object value)
+			private Func<object> Map<TValue>(Outer outer, Type type, TValue value)
 			{
-                Func<object> mapper = null;
+				return Map(outer, typeof(TValue), type, value);
+			}
+
+			private Func<object> Map(Outer outer, Type match, Type type, object value)
+			{
+				Func<object> mapper = null;
 				if
 				(
 					(revs.Length > 0) &&
 					(
 						(
-                            (value != null) && match.IsAssignableFrom(value.GetType())
+							(value != null) && match.IsAssignableFrom(value.GetType())
 						) ||
 						(
-                            (value == null) && (match.IsClass || match.IsInterface)
+							(value == null) && (match.IsClass || match.IsInterface)
 						)
 					)
 				)
-                {
-                    for (int i = 0; i < revs.Length; i++)
-                    {
-                        var candidate = revs[i];
-                        if
-                        (
-                            (candidate == null) ||
-                            !candidate.GetType().IsGenericType ||
-                            (candidate.GetType().GetGenericTypeDefinition() != typeof(Func<,,,>))
-                        )
-                            continue;
-                        var args = candidate.GetType().GetGenericArguments();
-                        if
-                        (
-                            (args[0] != typeof(Outer)) ||
-                            (args[1] != typeof(Type)) ||
-                            (!args[2].IsAssignableFrom(match)) ||
-                            (args[3] != typeof(object))
-                        )
-                            continue;
-                        JSON.Callee ce;
-                        if (!rces.Get(candidate, out ce))
-                            ce = rces.Set(candidate, JSON.Callable(typeof(object), typeof(Outer), typeof(Type), match, candidate));
-                        mapper = (ce.Invoke(outer, type, value) as Func<object>);
-                        if (mapper != null)
-                            break;
-                    }
-                }
-                return mapper;
+				{
+					for (int i = 0; i < revs.Length; i++)
+					{
+						var candidate = revs[i];
+						if
+						(
+							(candidate == null) ||
+							!candidate.GetType().IsGenericType ||
+							(candidate.GetType().GetGenericTypeDefinition() != typeof(Func<,,,>))
+						)
+							continue;
+						var args = candidate.GetType().GetGenericArguments();
+						if
+						(
+							(args[0] != typeof(Outer)) ||
+							(args[1] != typeof(Type)) ||
+							(!args[2].IsAssignableFrom(match)) ||
+							(args[3] != typeof(object))
+						)
+							continue;
+						JSON.Callee ce;
+						if (!rces.Get(candidate, out ce))
+							ce = rces.Set(candidate, JSON.Callable(typeof(object), typeof(Outer), typeof(Type), match, candidate));
+						mapper = (ce.Invoke(outer, type, value) as Func<object>);
+						if (mapper != null)
+							break;
+					}
+				}
+				return mapper;
 			}
 
-            private Outer Outer(Type type, object key)
-            {
-                return new Outer(type, key);
-            }
+			private Outer Outer(Type type, object key)
+			{
+				return new Outer(type, key);
+			}
 
-            private Outer Outer(Type type, IDictionary<string, object> hash, object key)
-            {
-                return new Outer(type, hash, key);
-            }
+			private Outer Outer(Type type, IDictionary<string, object> hash, object key)
+			{
+				return new Outer(type, hash, key);
+			}
 
-            private object Word(Type type)
+			private object Word(Type type)
 			{
 				Func<object> mapped;
 				switch (ch)
@@ -523,14 +523,14 @@ namespace System.Text.Json
 				if (ch == '{')
 				{
 					System.Collections.IDictionary d = null;
-                    Cache<string, PropInfo> pi = null;
-                    Cache<string, int> ti = null;
-                    if (!isa)
+					Cache<string, PropInfo> pi = null;
+					Cache<string, int> ti = null;
+					if (!isa)
 						o = Activator.CreateInstance(type, arg);
 					if (typeof(System.Collections.IDictionary).IsAssignableFrom(type))
 						d = (System.Collections.IDictionary)o;
-                    if (!obj)
-                        Known(type, out pi, out ti);
+					if (!obj)
+						Known(type, out pi, out ti);
 					if (data) read('{');
 					while (data && (ch <= ' ')) // Spaces
 						read(NEXT);
@@ -538,37 +538,37 @@ namespace System.Text.Json
 					{
 						if (data) read('}');
 						o = (isa ? Activator.CreateInstance(type, arg) : o);
-                        if (hash != null)
-                        {
-                            var mapped = Map(Outer(o.GetType(), hash, null), typeof(object), o.GetType(), o);
-                            o = ((mapped != null) ? mapped() : o);
-                        }
-                        return o;
+						if (hash != null)
+						{
+							var mapped = Map(Outer(o.GetType(), hash, null), typeof(object), o.GetType(), o);
+							o = ((mapped != null) ? mapped() : o);
+						}
+						return o;
 					}
-                    bool t = false;
-                    while (data)
+					bool t = false;
+					while (data)
 					{
 						string k = (Literal(type, true) as string);
-                        object m = null;
-                        if (!obj && (k == null))
+						object m = null;
+						if (!obj && (k == null))
 							throw Error("Bad object key");
-                        if (isa)
-                        {
-                            int n;
-                            if (!t)
-                            {
-                                n = (int)(m = Typed(cta, ti, k));
-                                t = true;
-                            }
-                            else
-                                m = (ti.Get(k, out n) ? (object)n : null);
-                            m = ((n > 0) ? (object)(n - 1) : null);
-                        }
-                        else
-                        {
-                            if (!isa)
-                                m = (!obj ? Typed(type, pi, k) : null);
-                        }
+						if (isa)
+						{
+							int n;
+							if (!t)
+							{
+								n = (int)(m = Typed(cta, ti, k));
+								t = true;
+							}
+							else
+								m = (ti.Get(k, out n) ? (object)n : null);
+							m = ((n > 0) ? (object)(n - 1) : null);
+						}
+						else
+						{
+							if (!isa)
+								m = (!obj ? Typed(type, pi, k) : null);
+						}
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
 						if (data) read(':');
@@ -580,10 +580,10 @@ namespace System.Text.Json
 								var p = tp.Data;
 								var q = Compile(p.PropertyType);
 								var mapped = Map(Outer(type, null), ((q != null) ? q.GetType() : typeof(object)), p.PropertyType, q);
-                                var v = ((mapped != null) ? mapped() : q);
+								var v = ((mapped != null) ? mapped() : q);
 								tp.Set(o, v);
-                                if (hash != null)
-                                    hash[p.Name] = v;
+								if (hash != null)
+									hash[p.Name] = v;
 							}
 							else
 							{
@@ -592,10 +592,10 @@ namespace System.Text.Json
 								var q = Compile(p.ParameterType);
 								var mapped = Map(Outer(type, null), ((q != null) ? q.GetType() : typeof(object)), p.ParameterType, q);
 								var v = ((mapped != null) ? mapped() : q);
-                                arg[i] = v;
-                                if (hash != null)
-                                    hash[p.Name] = v;
-                            }
+								arg[i] = v;
+								if (hash != null)
+									hash[p.Name] = v;
+							}
 						}
 						else if (d != null)
 						{
@@ -606,11 +606,11 @@ namespace System.Text.Json
 								throw Error("Bad key");
 							if (d.Contains(h))
 								throw Error(String.Format("Duplicate key \"{0}\"", h));
-                            mapped = Map(Outer(dvt, null), ((v != null) ? v.GetType() : typeof(object)), dvt, v);
+							mapped = Map(Outer(dvt, null), ((v != null) ? v.GetType() : typeof(object)), dvt, v);
 							d[h] = ((mapped != null) ? mapped() : v);
-                            if (hash != null)
-                                hash[k] = d[h];
-                        }
+							if (hash != null)
+								hash[k] = d[h];
+						}
 						else
 							Compile(null as Type);
 						while (data && (ch <= ' ')) // Spaces
@@ -619,13 +619,13 @@ namespace System.Text.Json
 						{
 							if (data) read('}');
 							o = (isa ? Activator.CreateInstance(type, arg) : o);
-                            if (hash != null)
-                            {
-                                var mapped = Map(Outer(o.GetType(), hash, null), o.GetType(), typeof(object), o);
-                                o = ((mapped != null) ? mapped() : o);
-                            }
-                            return o;
-                        }
+							if (hash != null)
+							{
+								var mapped = Map(Outer(o.GetType(), hash, null), o.GetType(), typeof(object), o);
+								o = ((mapped != null) ? mapped() : o);
+							}
+							return o;
+						}
 						if (data) read(',');
 						while (data && (ch <= ' ')) // Spaces
 							read(NEXT);
@@ -636,17 +636,17 @@ namespace System.Text.Json
 			private System.Collections.IEnumerable Array(Type type)
 			{
 				bool isa = type.IsArray;
-                System.Collections.IList lst;
-                Type art, elt;
-                if (!arts.Get(type, out art))
-                {
-                    var nt = Realizes(type, typeof(IEnumerable<>));
-                    elt = (isa ? type.GetElementType() : ((nt != null) ? nt.GetGenericArguments()[0] : typeof(object)));
-                    art = arts.Set(type, typeof(List<>).MakeGenericType(elt));
-                }
-                else
-                    elt = (isa ? type.GetElementType() : art.GetGenericArguments()[0]);
-                lst = (System.Collections.IList)Activator.CreateInstance(art);
+				System.Collections.IList lst;
+				Type art, elt;
+				if (!arts.Get(type, out art))
+				{
+					var nt = Realizes(type, typeof(IEnumerable<>));
+					elt = (isa ? type.GetElementType() : ((nt != null) ? nt.GetGenericArguments()[0] : typeof(object)));
+					art = arts.Set(type, typeof(List<>).MakeGenericType(elt));
+				}
+				else
+					elt = (isa ? type.GetElementType() : art.GetGenericArguments()[0]);
+				lst = (System.Collections.IList)Activator.CreateInstance(art);
 				if (ch == '[')
 				{
 					if (data) read('[');
@@ -655,14 +655,14 @@ namespace System.Text.Json
 					if (ch == ']')
 					{
 						if (data) read(']');
-                        if (isa)
-                        {
-                            System.Array arr = System.Array.CreateInstance(elt, lst.Count);
-                            lst.CopyTo(arr, 0);
-                            return arr;
-                        }
-                        else
-                            return lst;
+						if (isa)
+						{
+							System.Array arr = System.Array.CreateInstance(elt, lst.Count);
+							lst.CopyTo(arr, 0);
+							return arr;
+						}
+						else
+							return lst;
 					}
 					while (data)
 					{
@@ -672,14 +672,14 @@ namespace System.Text.Json
 						if (ch == ']')
 						{
 							if (data) read(']');
-                            if (isa)
-                            {
-                                System.Array arr = System.Array.CreateInstance(elt, lst.Count);
-                                lst.CopyTo(arr, 0);
-                                return arr;
-                            }
-                            else
-                                return lst;
+							if (isa)
+							{
+								System.Array arr = System.Array.CreateInstance(elt, lst.Count);
+								lst.CopyTo(arr, 0);
+								return arr;
+							}
+							else
+								return lst;
 						}
 						if (data) read(',');
 						while (data && (ch <= ' ')) // Spaces
@@ -697,7 +697,7 @@ namespace System.Text.Json
 				switch (ch)
 				{
 					case '{':
-                        var hash = (!noh ? new Dictionary<string, object>() : null);
+						var hash = (!noh ? new Dictionary<string, object>() : null);
 						return Object(type, hash);
 					case '[':
 						return Array(type);
@@ -717,7 +717,7 @@ namespace System.Text.Json
 					read(NEXT);
 				if (data)
 					throw Error("Unexpected content");
-                var mapped = Map(Outer(to, null), ((obj != null) ? obj.GetType() : typeof(object)), to, obj);
+				var mapped = Map(Outer(to, null), ((obj != null) ? obj.GetType() : typeof(object)), to, obj);
 				return ((mapped != null) ? mapped() : obj);
 			}
 		}

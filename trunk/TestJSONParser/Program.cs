@@ -7,23 +7,22 @@ using System.Text.Json;
 
 namespace TestJSONParser
 {
-    class Program
+	class Program
 	{
 		static void Main(string[] args)
 		{
-            BasicTests.CastTests();
+			BasicTests.CastTests();
 			BasicTests.MostBasicTest();
 			BasicTests.DateTimeTest();
 			BasicTests.PersonTest();
-            BasicTests.PersonAnonymousTest();
-            BasicTests.PolymorphicKeyDrivenTest();
+			BasicTests.PersonAnonymousTest();
+			BasicTests.SO_19023696();
 			BasicTests.SmallTest();
-            BasicTests.Top15Youtube2013Test();
-            BasicTests.FathersTest();
-            BasicTests.FathersTestTyped();
-            //BasicTests.FathersCompactTestTyped();
-            BasicTests.HugeTest();
-            OtherTests.RickStrahlsDynJSONTests();
+			BasicTests.Top15Youtube2013Test();
+			BasicTests.FathersTest();
+			BasicTests.FathersTestTyped();
+			BasicTests.HugeTest();
+			OtherTests.RickStrahlsDynJSONTests();
 		}
 	}
 }

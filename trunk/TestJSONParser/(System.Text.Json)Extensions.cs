@@ -37,7 +37,7 @@ using System.Text;
 
 namespace System.Text.Json
 {
-    public partial struct JSON
+	public partial struct JSON
 	{
 		public static JSON<TValue> Map<TValue>(TValue value)
 		{
@@ -45,28 +45,28 @@ namespace System.Text.Json
 		}
 	}
 
-    public struct JSON<TValue> { }
+	public struct JSON<TValue> { }
 
 	public static class Extensions
 	{
 		public static IList<TValue> IList<TValue>(this Type self, TValue prototype)
 		{
-            return List<TValue>(self, prototype);
+			return List<TValue>(self, prototype);
 		}
 
-        public static List<TValue> List<TValue>(this Type self, TValue prototype)
+		public static List<TValue> List<TValue>(this Type self, TValue prototype)
 		{
 			return new List<TValue>();
 		}
 
-        public static IDictionary<TKey, TValue> IDictionary<TKey, TValue>(this Type self, TKey protoKey, TValue protoValue)
+		public static IDictionary<TKey, TValue> IDictionary<TKey, TValue>(this Type self, TKey protoKey, TValue protoValue)
 		{
-            return Dictionary<TKey, TValue>(self, protoKey, protoValue);
+			return Dictionary<TKey, TValue>(self, protoKey, protoValue);
 		}
 
-        public static Dictionary<TKey, TValue> Dictionary<TKey, TValue>(this Type self, TKey protoKey, TValue protoValue)
+		public static Dictionary<TKey, TValue> Dictionary<TKey, TValue>(this Type self, TKey protoKey, TValue protoValue)
 		{
-            return new Dictionary<TKey, TValue>();
+			return new Dictionary<TKey, TValue>();
 		}
 
 		public static T As<T>(this object obj)

@@ -23,7 +23,7 @@ namespace TestJSONParser
 	{
 		/*
 		// (code omitted)
-        
+
 		public class Song
 		{
 			public string SongName { get; set; }
@@ -90,20 +90,20 @@ namespace TestJSONParser
 				FromJson
 				(
 					jsonString,
-                    // Revivers, to map doubles into ints, and strings into DateTimes:
+				// Revivers, to map doubles into ints, and strings into DateTimes:
 					JSON.Map(default(double)).
 						Using
 						(
 							(outer, type, value) =>
-                                ((outer.Key == null) && (type == typeof(int))) ? (Func<object>)
-							        (() => Convert.ToInt32(value)) :
+								((outer.Key == null) && (type == typeof(int))) ? (Func<object>)
+									(() => Convert.ToInt32(value)) :
 									null
 						),
 					JSON.Map(default(string)).
 						Using
 						(
 							(outer, type, value) =>
-                                ((outer.Key == null) && (type == typeof(DateTime))) ? (Func<object>)
+								((outer.Key == null) && (type == typeof(DateTime))) ? (Func<object>)
 									(() => DateTime.Parse(value)) :
 									null
 						)
@@ -112,7 +112,7 @@ namespace TestJSONParser
 			Console.WriteLine("All albums, all songs:");
 			Console.WriteLine();
 
-            foreach (var album in albums)
+			foreach (var album in albums)
 			{
 				Console.WriteLine("\t" + album.AlbumName + " (" + album.YearReleased.ToString() + ")");
 				foreach (var song in album.Songs)
