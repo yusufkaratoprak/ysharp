@@ -43,16 +43,9 @@ namespace System.Text.Json
 		{
 			return default(JSON<TValue>);
 		}
-
-		public static JSON<TValue, TResult> Map<TValue, TResult>(TValue from, TResult to)
-		{
-			return default(JSON<TValue, TResult>);
-		}
 	}
 
     public struct JSON<TValue> { }
-
-    public struct JSON<TValue, TResult> { }
 
 	public static class Extensions
 	{
@@ -86,12 +79,7 @@ namespace System.Text.Json
 			return (T)obj;
 		}
 
-		public static Reviver<TValue, TValue> Using<TValue>(this JSON<TValue> self, Reviver<TValue, TValue> reviver)
-		{
-			return reviver;
-		}
-
-		public static Reviver<TValue, TResult> Using<TValue, TResult>(this JSON<TValue, TResult> self, Reviver<TValue, TResult> reviver)
+		public static Func<Outer, Type, TValue, object> Using<TValue>(this JSON<TValue> self, Func<Outer, Type, TValue, object> reviver)
 		{
 			return reviver;
 		}
@@ -101,7 +89,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(text, default(TValue));
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, string text)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, string text)
 		{
 			return new Parser().Parse<TValue, TResult>(text, default(TValue));
 		}
@@ -111,7 +99,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(text, settings, default(TValue));
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, string text, ParserSettings settings)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, string text, ParserSettings settings)
 		{
 			return new Parser().Parse<TValue, TResult>(text, settings, default(TValue));
 		}
@@ -121,7 +109,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(text, default(TValue), revivers);
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, string text, params Delegate[] revivers)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, string text, params Delegate[] revivers)
 		{
 			return new Parser().Parse<TValue, TResult>(text, default(TValue), revivers);
 		}
@@ -131,7 +119,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(text, settings, default(TValue), revivers);
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, string text, ParserSettings settings, params Delegate[] revivers)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, string text, ParserSettings settings, params Delegate[] revivers)
 		{
 			return new Parser().Parse<TValue, TResult>(text, settings, default(TValue), revivers);
 		}
@@ -141,7 +129,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(stream, default(TValue));
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.Stream stream)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.Stream stream)
 		{
 			return new Parser().Parse<TValue, TResult>(stream, default(TValue));
 		}
@@ -151,7 +139,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(stream, settings, default(TValue));
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.Stream stream, ParserSettings settings)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.Stream stream, ParserSettings settings)
 		{
 			return new Parser().Parse<TValue, TResult>(stream, settings, default(TValue));
 		}
@@ -161,7 +149,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(stream, default(TValue), revivers);
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.Stream stream, params Delegate[] revivers)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.Stream stream, params Delegate[] revivers)
 		{
 			return new Parser().Parse<TValue, TResult>(stream, default(TValue), revivers);
 		}
@@ -171,7 +159,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(stream, settings, default(TValue), revivers);
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.Stream stream, ParserSettings settings, params Delegate[] revivers)
 		{
 			return new Parser().Parse<TValue, TResult>(stream, settings, default(TValue), revivers);
 		}
@@ -181,7 +169,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(reader, default(TValue));
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.StreamReader reader)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.StreamReader reader)
 		{
 			return new Parser().Parse<TValue, TResult>(reader, default(TValue));
 		}
@@ -191,7 +179,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(reader, settings, default(TValue));
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.StreamReader reader, ParserSettings settings)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.StreamReader reader, ParserSettings settings)
 		{
 			return new Parser().Parse<TValue, TResult>(reader, settings, default(TValue));
 		}
@@ -201,7 +189,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(reader, default(TValue), revivers);
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.StreamReader reader, params Delegate[] revivers)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.StreamReader reader, params Delegate[] revivers)
 		{
 			return new Parser().Parse<TValue, TResult>(reader, default(TValue), revivers);
 		}
@@ -211,7 +199,7 @@ namespace System.Text.Json
 			return new Parser().Parse<TValue, TValue>(reader, settings, default(TValue), revivers);
 		}
 
-		public static TResult FromJson<TValue, TResult>(this JSON<TValue, TResult> self, TResult prototype, System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
+		public static TResult FromJson<TValue, TResult>(this JSON<TValue> self, TResult prototype, System.IO.StreamReader reader, ParserSettings settings, params Delegate[] revivers)
 		{
 			return new Parser().Parse<TValue, TResult>(reader, settings, default(TValue), revivers);
 		}
