@@ -11,8 +11,8 @@ namespace TestJSONParser
 	public class BasicTests
 	{
 		const string SMALL_TEST_FILE_PATH = @"..\..\small.json.txt"; // avg: 4kb ~ 1ms
-		const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 1sec
-        const string FATHERS_COMPACT_TEST_FILE_PATH = @"..\..\fathers.compact.json.txt"; // avg: 80mb ~ ???sec
+		const string FATHERS_TEST_FILE_PATH = @"..\..\fathers.json.txt"; // avg: 12mb ~ 3sec
+        const string FATHERS_COMPACT_TEST_FILE_PATH = @"..\..\fathers.compact.json.txt"; // avg: 84mb ~ 32sec
 #if WITH_HUGE_TEST
 		const string HUGE_TEST_FILE_PATH = @"..\..\huge.json.txt"; // avg: 180mb ~ 20sec
 #endif
