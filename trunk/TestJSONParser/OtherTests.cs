@@ -6,7 +6,6 @@ using System.Linq;
 //using Newtonsoft.Json.Linq;
 //using Newtonsoft.Json;
 
-// Our stuff :)
 using System.Text.Json;
 
 /*
@@ -69,7 +68,6 @@ namespace TestJSONParser
 			Console.WriteLine("( @ http://west-wind.com/weblog/posts/2012/Aug/30/Using-JSONNET-for-dynamic-JSON-parsing )");
 			Console.WriteLine();
 
-			// In the mood for terseness :)
 			var Album = new
 			{
 				Entered = default(DateTime),
@@ -85,27 +83,27 @@ namespace TestJSONParser
 					SongLength = ""
 				})
 			};
+
 			// We use this "new[] { Album }" to (strongly) type-shape what we're interested in,
-			// thus, by a prototype array of our previous anonymous type (the one held @ Album)
+			// here, by a prototype array of our previous anonymous type (the one held @ Album)
 			var albums = JSON.Map(new[] { Album }).
 				FromJson
 				(
-					jsonString, // Don't forget the revivers, to map doubles into ints, and strings into DateTimes:
-
-					JSON.Map(default(double), default(int)).
+					jsonString,
+                    // Revivers, to map doubles into ints, and strings into DateTimes:
+					JSON.Map(default(double)).
 						Using
 						(
-							(outer, value) =>
-                                ((outer.Type == typeof(int)) && (outer.Key == null)) ? (Func<int>)
+							(outer, type, value) =>
+                                ((outer.Key == null) && (type == typeof(int))) ? (Func<object>)
 							        (() => Convert.ToInt32(value)) :
 									null
 						),
-
-					JSON.Map(default(string), default(DateTime)).
+					JSON.Map(default(string)).
 						Using
 						(
-							(outer, value) =>
-                                ((outer.Type == typeof(DateTime)) && (outer.Key == null)) ? (Func<DateTime>)
+							(outer, type, value) =>
+                                ((outer.Key == null) && (type == typeof(DateTime))) ? (Func<object>)
 									(() => DateTime.Parse(value)) :
 									null
 						)
@@ -113,8 +111,8 @@ namespace TestJSONParser
 
 			Console.WriteLine("All albums, all songs:");
 			Console.WriteLine();
-			// Stay terse... however, stay strongly typed, too! :)
-			foreach (var album in albums)
+
+            foreach (var album in albums)
 			{
 				Console.WriteLine("\t" + album.AlbumName + " (" + album.YearReleased.ToString() + ")");
 				foreach (var song in album.Songs)
