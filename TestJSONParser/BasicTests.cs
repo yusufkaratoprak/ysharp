@@ -31,7 +31,7 @@ namespace TestJSONParser
 					Using
 					(
 						(outer, type, value) =>
-							((outer.Key == null) && ((type == typeof(int)) || (type == typeof(object)))) ? (Func<object>)
+							((outer.Key == null) && ((type == typeof(int)) || (type == typeof(object)) || (outer.Type == typeof(int)))) ? (Func<object>)
 								(() => Convert.ToInt32(value)) :
 								null
 					);
