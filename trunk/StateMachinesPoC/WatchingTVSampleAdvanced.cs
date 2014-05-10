@@ -1,97 +1,137 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Text;
 
-using Machines;
-
-namespace WatchingTVAdvanced
+namespace Test
 {
-	public enum TVEvent
-	{
-		Plug,
-		SwitchOn,
-		SwitchOff,
-		Unplug,
-		Destroy
-	}
+    using Machines;
 
-	public class TVState : State<TVState, TVEvent, DateTime>
-	{
-		public static readonly TVState Unplugged = new TVState("unplugged");
-		public static readonly TVState Off = new TVState("turned off");
-		public static readonly TVState On = new TVState("turned on");
-		public static readonly TVState Disposed = new TVState("disposed");
+    public static class WatchingTvSampleAdvanced
+    {
+        // Enum type for the transition triggers (instead of System.String) :
+        public enum TvOperation { Plug, SwitchOn, SwitchOff, Unplug, Dispose }
 
-		public TVState() : this(false) { }
-		public TVState(string name) : this(true) { Name = name; Value = this; }
-		public TVState(bool constant)
-		{
-			if (!constant)
-			{
-				var transitions = new[]
-				{
-					new { From = Unplugged,		When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = Off,			When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = On,			When = TVEvent.Destroy,		Goto = Disposed,	With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = Unplugged,		When = TVEvent.Plug,		Goto = Off,			With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = Off,			When = TVEvent.SwitchOn,	Goto = On,			With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = Off,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = On,			When = TVEvent.SwitchOff,	Goto = Off,			With = "WatchingTVAdvanced.Television.StateChange" },
-					new { From = On,			When = TVEvent.Unplug,		Goto = Unplugged,	With = "WatchingTVAdvanced.Television.StateChange" }
-				};
-				Build(transitions, null);
-			}
-		}
+        // The state machine class type is also used as the type for its possible states constants :
+        public class Television : NamedState<Television, TvOperation, DateTime>
+        {
+            // Declare all the possible states constants :
+            public static readonly Television Unplugged = new Television("(Unplugged TV)");
+            public static readonly Television Off = new Television("(TV Off)");
+            public static readonly Television On = new Television("(TV On)");
+            public static readonly Television Disposed = new Television("(Disposed TV)");
 
-		public string Name { get; private set; }
-	}
+            // For convenience, enter the start state when the parameterless constructor executes :
+            public Television() : this(Television.Unplugged) { }
 
-	public class Television : Machine<TVState, TVState, TVEvent, DateTime>
-	{
-		public static void StateChange(IState<TVState> state, TVState from, TVEvent trigger, TVState to, DateTime timeStamp)
-		{
-			Console.WriteLine("\t\t\tFrom: {0} --- (trigger: {1}({2})) --> To: {3}", from.Name, trigger, timeStamp, to.Name);
-		}
-	}
+            // To create a state machine instance :
+            private Television(Television value) : this(null, value) { }
 
-	public class TVRemote : SignalSource<TVEvent, DateTime> { }
+            // To create a possible state constant :
+            private Television(string moniker) : this(moniker, null) { }
 
-	public static class Example
-	{
-		public static IEnumerable<TVEvent> Signals
-		{
-			get
-			{
-				yield return TVEvent.Plug;
-				yield return TVEvent.SwitchOn;
-				yield return TVEvent.Destroy;
-			}
-		}
+            private Television(string moniker, Television value)
+            {
+                if (moniker == null)
+                {
+                    // Build the state graph programmatically
+                    // (instead of declaratively via custom attributes) :
+                    Build
+                    (
+                        new[]
+                        {
+                            new { From = Television.Unplugged, When = TvOperation.Plug, Goto = Television.Off, With = "StateChange" },
+                            new { From = Television.Unplugged, When = TvOperation.Dispose, Goto = Television.Disposed, With = "StateChange" },
+                            new { From = Television.Off, When = TvOperation.SwitchOn, Goto = Television.On, With = "StateChange" },
+                            new { From = Television.Off, When = TvOperation.Unplug, Goto = Television.Unplugged, With = "StateChange" },
+                            new { From = Television.Off, When = TvOperation.Dispose, Goto = Television.Disposed, With = "StateChange" },
+                            new { From = Television.On, When = TvOperation.SwitchOff, Goto = Television.Off, With = "StateChange" },
+                            new { From = Television.On, When = TvOperation.Unplug, Goto = Television.Unplugged, With = "StateChange" },
+                            new { From = Television.On, When = TvOperation.Dispose, Goto = Television.Disposed, With = "StateChange" }
+                        },
+                        false
+                    );
+                }
+                else
+                    // Name the state constant :
+                    Moniker = moniker;
+                Start(value ?? this);
+            }
 
-		public static void Run()
-		{
-			ISignalling<TVEvent, DateTime> remote = new TVRemote();
-			Console.WriteLine("Simulation 5:");
-			// Notice how, by instantiating three distinct Television,
-			// observers of the same remote control, it's a signal broadcast to all three:
-			var states = (
-				from state in new[]
-				{
-					new Tuple<TVState, TVState, TVState>
-					(
-						(TVState)new Television().Using(remote).Start(TVState.Unplugged),
-						(TVState)new Television().Using(remote).Start(TVState.Unplugged),
-						(TVState)new Television().Using(remote).Start(TVState.Unplugged)
-					)
-				}
-				from signal in Signals
-				let action = remote.Emit(signal, DateTime.Now)
-				select state
-			).ToArray();
+            // Because it's a reference type, disallow the null value for a start state : 
+            protected override void OnStart(Television value)
+            {
+                if (value == null)
+                    throw new ArgumentNullException("value", "cannot be null");
+            }
 
-			Console.ReadLine();
-		}
-	}
+            // When reaching a final state, unsubscribe from the signal source(s), if any :
+            protected override void OnComplete(bool sourceComplete)
+            {
+                if (!sourceComplete)
+                    Unsubscribe();
+            }
+
+            // Executed before and after every state transition :
+            private void StateChange(IState<Television> state, ExecutionStep step, Television value, TvOperation info, DateTime args)
+            {
+                // Holds for all possible transitions defined in the state graph :
+                System.Diagnostics.Debug.Assert((step != ExecutionStep.Leave) || !state.IsFinal);
+
+                // Holds in non-static transition handlers like this one :
+                System.Diagnostics.Debug.Assert(this == state);
+
+                switch (step)
+                {
+                    case ExecutionStep.Leave:
+                        var timeStamp = ((args != default(DateTime)) ? String.Format("\t\t(@ {0})", args) : String.Empty);
+                        Console.WriteLine();
+                        // 'value' is the state value we are transitioning TO :
+                        Console.WriteLine("\tLeave :\t{0} -- {1} -> {2}{3}", this, info, value, timeStamp);
+                        break;
+                    case ExecutionStep.Enter:
+                        // 'value' is the state value we have transitioned FROM :
+                        Console.WriteLine("\tEnter :\t{0} -- {1} -> {2}", value, info, this);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            public override string ToString() { return (IsConstant ? Moniker : Value.ToString()); }
+        }
+
+        public static void Run()
+        {
+            Console.Clear();
+
+            var remote = new SignalSource<TvOperation, DateTime>();
+
+            // Create the TV state machine set in its start state, and make it subscribe to a compatible signal source,
+            // such as the remote control :
+            var tv = new Television().Using(remote);
+
+            // As commonly done, we can trigger a transition directly on the state machine :
+            tv.MoveNext(TvOperation.Plug, DateTime.Now);
+
+            // Alternatively, we can also trigger transitions by emitting from the signal source
+            // that the state machine subscribed to :
+            remote.Emit(TvOperation.SwitchOn, DateTime.Now);
+            remote.Emit(TvOperation.SwitchOff);
+            remote.Emit(TvOperation.SwitchOn);
+            remote.Emit(TvOperation.SwitchOff, DateTime.Now);
+
+            tv.MoveNext(TvOperation.Unplug);
+            tv.MoveNext(TvOperation.Dispose); // MoveNext(...) returns null iff IsFinal == true
+
+            remote.Emit(TvOperation.Unplug); // Ignored by the state machine thanks to the OnComplete(...) override above
+
+            Console.WriteLine();
+            Console.WriteLine("Is the TV's state '{0}' a final state? {1}", tv.Value, tv.IsFinal);
+
+            Console.WriteLine();
+            Console.WriteLine("Press any key...");
+            Console.ReadKey();
+        }
+    }
 }
