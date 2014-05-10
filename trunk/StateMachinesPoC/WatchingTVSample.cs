@@ -1,144 +1,78 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Text;
 
-using Machines;
-
-namespace WatchingTV
+namespace Test
 {
-	// The TV state transition trigger/signal type:
-	public enum TVEvent
-	{
-		Plug,
-		SwitchOn,
-		SwitchOff,
-		Unplug,
-		Destroy
-	}
+    using Machines;
 
-	// The TV state value type:
-	public enum TVStatus
-	{
-		Undefined,
-		Unplugged,
-		Off,
-		On,
-		Disposed
-	}
+    public static class WatchingTvSample
+    {
+        public enum Status { Unplugged, Off, On, Disposed }
 
-	// The TV state metadata attribute to annotate the TV state with the definitions of allowed transitions:
-	public class TVTransitionAttribute : TransitionAttribute
-	{
-		public TVStatus From { get; set; }
-		public TVEvent When { get; set; }
-		public TVStatus Goto { get; set; }
-		public string With { get; set; }
-	}
+        public class DeviceTransitionAttribute : TransitionAttribute
+        {
+            public Status From { get; set; }
+            public string When { get; set; }
+            public Status Goto { get; set; }
+            public object With { get; set; }
+        }
 
-	// The TV state proper:
-	[TVTransition(From = TVStatus.Unplugged, When = TVEvent.Destroy, Goto = TVStatus.Disposed, With = "StateChange")]
-	[TVTransition(From = TVStatus.Off, When = TVEvent.Destroy, Goto = TVStatus.Disposed, With = "StateChange")]
-	[TVTransition(From = TVStatus.On, When = TVEvent.Destroy, Goto = TVStatus.Disposed, With = "StateChange")]
-	[TVTransition(From = TVStatus.Unplugged, When = TVEvent.Plug, Goto = TVStatus.Off, With = "StateChange")]
-	[TVTransition(From = TVStatus.Off, When = TVEvent.SwitchOn, Goto = TVStatus.On, With = "StateChange")]
-	[TVTransition(From = TVStatus.Off, When = TVEvent.Unplug, Goto = TVStatus.Unplugged, With = "StateChange")]
-	[TVTransition(From = TVStatus.On, When = TVEvent.SwitchOff, Goto = TVStatus.Off, With = "StateChange")]
-	[TVTransition(From = TVStatus.On, When = TVEvent.Unplug, Goto = TVStatus.Unplugged, With = "StateChange")]
-	public class TVState : State<TVStatus, TVEvent, int>
-	{
-		// This method is called during each allowed transition (BEFORE the state change),
-		// and whether or not the from/to states are distinct (sometimes a transition just loops over the same state):
-		public static void StateChange(IState<TVStatus> state, TVStatus from, TVEvent trigger, TVStatus to, int args)
-		{
-			Console.WriteLine("\t\t\tFrom: {0} --- (trigger: {1}({2})) --> To: {3}", from, trigger, args, to);
-		}
-	}
+        // State<Status> is a shortcut for / derived from State<Status, string>,
+        // which in turn is a shortcut for / derived from State<Status, string, object> :
+        public class Device : State<Status>
+        {
+            // For convenience, enter the start state when the parameterless constructor executes :
+            public Device() : base(Status.Unplugged) { }
+        }
 
-	// The TV state machine proper:
-	public class Television : Machine<TVState, TVStatus, TVEvent, int> { }
+        [DeviceTransition(From = Status.Unplugged, When = "Plug", Goto = Status.Off)]
+        [DeviceTransition(From = Status.Unplugged, When = "Dispose", Goto = Status.Disposed)]
+        [DeviceTransition(From = Status.Off, When = "Switch On", Goto = Status.On)]
+        [DeviceTransition(From = Status.Off, When = "Unplug", Goto = Status.Unplugged)]
+        [DeviceTransition(From = Status.Off, When = "Dispose", Goto = Status.Disposed)]
+        [DeviceTransition(From = Status.On, When = "Switch Off", Goto = Status.Off)]
+        [DeviceTransition(From = Status.On, When = "Unplug", Goto = Status.Unplugged)]
+        [DeviceTransition(From = Status.On, When = "Dispose", Goto = Status.Disposed)]
+        public class Television : Device
+        {
+            // Executed before and after every state transition :
+            protected override void OnChange(ExecutionStep step, Status value, string info, object args)
+            {
+                if (step == ExecutionStep.Enter)
+                {
+                    // 'value' is the state value we have transitioned FROM :
+                    Console.WriteLine("\t{0} -- {1} -> {2}", value, info, this);
+                }
+            }
 
-	// The TV remote control:
-	public class TVRemote : SignalSource<TVEvent, int> { }
+            public override string ToString() { return Value.ToString(); }
+        }
 
-	public static class Example
-	{
-		private static TVEvent[] SampleSimulation1
-		{
-			get { return new[] { TVEvent.Plug, TVEvent.Destroy }; }
-		}
+        public static void Run()
+        {
+            Console.Clear();
 
-		private static IEnumerable<TVEvent> SampleSimulation2
-		{
-			get
-			{
-				yield return TVEvent.Plug;
-				yield return TVEvent.SwitchOn;
-				yield return TVEvent.Destroy;
-			}
-		}
+            // Create the TV state machine set in its start state :
+            var tv = new Television();
 
-		public static void Run()
-		{
-			// The TV's remote control is an ISignalling<Tuple<TVEvent, int>>,
-			// and also an IObservable<Tuple<TVEvent, int>> (see Simulation 4 below):
-			ISignalling<TVEvent, int> remote = new TVRemote();
+            // Trigger state transitions without argument
+            // ('args' ignored by the state machine anyway) :
+            tv.MoveNext("Plug");
+            tv.MoveNext("Switch On");
+            tv.MoveNext("Switch Off");
+            tv.MoveNext("Switch On");
+            tv.MoveNext("Switch Off");
+            tv.MoveNext("Unplug");
+            tv.MoveNext("Dispose"); // MoveNext(...) returns null iff IsFinal == true
 
-			// The TV is in fact an IMachine<TVState, TVStatus, TVEvent, int>,
-			// here shortened to its base type IMachine<TVStatus> for simple enumeration purpose:
-			IMachine<TVStatus> television = new Television();
+            Console.WriteLine();
+            Console.WriteLine("Is the TV's state '{0}' a final state? {1}", tv.Value, tv.IsFinal);
 
-			// The state of the TV is in fact an IState<TVStatus, TVEvent, int>,
-			// here shortened to its base type IState<TVStatus> for simple enumeration purpose:
-			IState<TVStatus> state = new TVState();
-
-			// Enumerating over the IEnumerable<TVEvent> (SampleSimulation1),
-			// which is the source of triggers for state transitions:
-			Console.WriteLine("Simulation 1:");
-			foreach (TVStatus value in state.Using(SampleSimulation1).Start(TVStatus.Unplugged))
-				;// not interested in doing anything special after each successful transition...
-
-			// Enumerating over the IEnumerable<TVEvent> (SampleSimulation2),
-			// which is the source of triggers for state transitions:
-			Console.WriteLine("Simulation 2:");
-			foreach (TVStatus value in state.Using(SampleSimulation2).Start(TVStatus.Unplugged))
-				// Just echo on the console the state that we transitioned TO:
-				Console.WriteLine("\t{0}", value);
-
-			// Anti-pattern:
-			// this coding style does work but isn't recommended:
-			Console.WriteLine("Simulation 3:");
-			if (!state.Start(TVStatus.Unplugged).IsFinal)
-			{
-				Console.WriteLine("\t... Done? {0}", state.IsFinal);
-				if (state.Consume(TVEvent.Plug) && !state.IsFinal)
-				{
-					Console.WriteLine("\t... Done? {0}", state.IsFinal);
-					if (state.Consume(TVEvent.SwitchOn) && !state.IsFinal)
-					{
-						Console.WriteLine("\t... Done? {0}", state.IsFinal);
-						if (state.Consume(TVEvent.SwitchOff) && !state.IsFinal)
-						{
-							Console.WriteLine("\t... Done? {0}", state.IsFinal);
-							if (state.Consume(TVEvent.Destroy) && !state.IsFinal)
-								Console.WriteLine("(not executed)");
-							else
-								Console.WriteLine("\t... Done? {0}", state.IsFinal);
-						}
-					}
-				}
-			}
-
-			Console.WriteLine("Simulation 4:");
-			// Ensure we are back in the start state:
-			state = television.Using(remote).Start(TVStatus.Unplugged);
-			// Now use the various remote control's Emit signatures:
-			remote.Emit(TVEvent.Plug);
-			remote.Emit(TVEvent.SwitchOn, 1);
-			remote.Emit(new Tuple<TVEvent, int>(TVEvent.SwitchOff, 2));
-			remote.Emit(new KeyValuePair<TVEvent, int>(TVEvent.Unplug, 3));
-			remote.Emit(TVEvent.Destroy, 4);
-		}
-	}
+            Console.WriteLine();
+            Console.WriteLine("Press any key...");
+            Console.ReadKey();
+        }
+    }
 }
