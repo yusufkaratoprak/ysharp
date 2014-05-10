@@ -1,75 +1,93 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Text;
 
-using Machines;
-
-namespace ThatsLife
+namespace Test
 {
-	// First we define the meaningful set of values for life status:
-	public enum LifeStatus { Unborn, Child, Unemployed, Employed, Retired, Dead }
+    using Machines;
 
-	// Next we define a metadata attribute to decorate a descendant of State<...>
-	// with the only allowed state transitions;
-	// note the expected read-write properties MUST BE named "From", "When", "Goto", and "With"
-	// "From" denotes the state we're transitioning AWAY FROM
-	// "Goto" denotes the state we're transitioning TO
-	// "When" denotes the trigger/signal value of the transition
-	// "With" is the name of the method (possibly fully qualified type + member name)
-	// executed during state transitions as they occur
-	// On the types:
-	// "From" is of the type of state values' type (Status in this example)
-	// "When" is of the type of trigger/signal, can be a custom enum as well, but here we default to string
-	// "Goto" is of the same type as "From"
-	// "With" is string
-	public class LifeTransitionAttribute : TransitionAttribute
-	{
-		public LifeStatus From { get; set; }
-		public string When { get; set; }
-		public LifeStatus Goto { get; set; }
-		public string With { get; set; }
-	}
+    public static class ThatsLifeSample
+    {
+        public enum Status { Unborn, Child, Unemployed, Employed, Retired, Dead }
 
-	// Next we define the state type proper:
-	[LifeTransition(From = LifeStatus.Unborn, When = "Birth", Goto = LifeStatus.Child, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Unborn, When = "Death", Goto = LifeStatus.Dead, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Child, When = "Death", Goto = LifeStatus.Dead, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Child, When = "Graduation", Goto = LifeStatus.Unemployed, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Unemployed, When = "Employment", Goto = LifeStatus.Employed, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Unemployed, When = "Death", Goto = LifeStatus.Dead, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Employed, When = "Death", Goto = LifeStatus.Dead, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Employed, When = "Retirement", Goto = LifeStatus.Retired, With = "StateChange")]
-	[LifeTransition(From = LifeStatus.Retired, When = "Death", Goto = LifeStatus.Dead, With = "StateChange")]
-	public class Mankind : State<LifeStatus>
-	{
-		public static void StateChange(IState<LifeStatus> state, LifeStatus from, string trigger, LifeStatus to, object args)
-		{
-			Console.WriteLine("\t\t\tFrom: {0} --- (trigger: {1}) --> To: {2}", from, trigger, to);
-		}
-	}
+        public class PersonTransitionAttribute : TransitionAttribute
+        {
+            public Status From { get; set; }
+            public string When { get; set; }
+            public Status Goto { get; set; }
+            public object With { get; set; }
+        }
 
-	// We also define a signal source of triggers/signals, an IObservable<string> here:
-	public class Life : SignalSource { }
+        [PersonTransition(From = Status.Unborn, When = "Birth", Goto = Status.Child)]
+        [PersonTransition(From = Status.Unborn, When = "Death", Goto = Status.Dead)]
+        [PersonTransition(From = Status.Child, When = "Graduation", Goto = Status.Unemployed)]
+        [PersonTransition(From = Status.Child, When = "Death", Goto = Status.Dead)]
+        [PersonTransition(From = Status.Unemployed, When = "Graduation", Goto = Status.Unemployed)]
+        [PersonTransition(From = Status.Unemployed, When = "Employment", Goto = Status.Employed)]
+        [PersonTransition(From = Status.Unemployed, When = "Death", Goto = Status.Dead)]
+        [PersonTransition(From = Status.Employed, When = "Lay off", Goto = Status.Unemployed)]
+        [PersonTransition(From = Status.Employed, When = "Resignation", Goto = Status.Unemployed)]
+        [PersonTransition(From = Status.Employed, When = "Retirement", Goto = Status.Retired)]
+        [PersonTransition(From = Status.Employed, When = "Death", Goto = Status.Dead)]
+        [PersonTransition(From = Status.Retired, When = "Death", Goto = Status.Dead)]
+        public class Person : State<Status, string, DateTime>
+        {
+            private static readonly IDictionary<string, string> VerbToNoun = new Dictionary<string, string>
+            {
+                { "born", "Birth" },
+                { "graduate", "Graduation" },
+                { "work", "Employment" },
+                { "laid off", "Lay off" },
+                { "resign", "Resignation" },
+                { "retire", "Retirement" },
+                { "die", "Death" }
+            };
 
-	// Finally, the state machine proper, compatible with the above:
-	public class Person : Machine<Mankind, LifeStatus> { }
+            // For convenience, enter the start state when the parameterless constructor executes :
+            public Person() : base(Status.Unborn) { }
 
-	public static class Example
-	{
-		public static void Run()
-		{
-			var JohnsLife = new Life();
-			var John = new Person().Using(JohnsLife).Start();
-			Console.WriteLine("Simulation 0:");
-			// We use the signal source that the start state (and others) of the state machine
-			// is an observer of (IObserver<string>):
-			JohnsLife.Emit("Birth");
-			JohnsLife.Emit("Graduation");
-			JohnsLife.Emit("Employment");
-			JohnsLife.Emit("Retirement");
-			JohnsLife.Emit("Death");
-		}
-	}
+            // Map verbs possibly emitted by a signal source to the corresponding valid transition nouns :
+            protected override KeyValuePair<string, DateTime> Prepare(KeyValuePair<string, DateTime> input)
+            {
+                return base.Prepare(new KeyValuePair<string, DateTime>(VerbToNoun.ContainsKey(input.Key) ? VerbToNoun[input.Key] : input.Key, input.Value));
+            }
+
+            // Executed before and after every state transition :
+            protected override void OnChange(ExecutionStep step, Status value, string info, DateTime args)
+            {
+                if (step == ExecutionStep.Enter)
+                {
+                    var timeStamp = String.Format("\t\t(@ {0})", (args != default(DateTime)) ? args : DateTime.Now);
+                    // 'value' is the state value we have transitioned FROM :
+                    Console.WriteLine("\t{0} -- {1} -> {2}{3}", value, info, this, timeStamp);
+                }
+            }
+
+            public override string ToString() { return Value.ToString(); }
+        }
+
+        public static void Run()
+        {
+            Console.Clear();
+
+            // Create the person state machine set in its start state :
+            var joe = new Person();
+
+            // Trigger state transitions with or without the DateTime argument :
+            joe.MoveNext("born", new DateTime(1963, 2, 1)); // equivalent to : joe.MoveNext("Birth", ...)
+            joe.MoveNext("graduate", new DateTime(1980, 6, 5));
+            joe.MoveNext("work", new DateTime(1981, 7, 6));
+            joe.MoveNext("Lay off", new DateTime(1982, 8, 7)); // equivalent to : joe.MoveNext("laid off", ...)
+            joe.MoveNext("work", new DateTime(1983, 9, 8));
+            joe.MoveNext("retire");
+
+            Console.WriteLine();
+            Console.WriteLine("Is Joe's state '{0}' a final state? {1}", joe.Value, joe.IsFinal);
+
+            Console.WriteLine();
+            Console.WriteLine("Press any key...");
+            Console.ReadKey();
+        }
+    }
 }
