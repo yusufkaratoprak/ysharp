@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,692 +6,468 @@ using System.Text;
 
 namespace Machines
 {
-	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
-	public class TransitionAttribute : Attribute { }
-
-	public delegate void Handler<TValue, Trigger, TArgs>(IState<TValue> state, TValue from, Trigger trigger, TValue to, TArgs args);
-
-	public sealed class Edge<TValue, Trigger, TArgs>
-	{
-		internal Edge(TValue source, TValue target, Handler<TValue, Trigger, TArgs> handler) { Source = source; Target = target; Handler = handler; }
-		public Handler<TValue, Trigger, TArgs> Handler { get; private set; }
-		public TValue Source { get; private set; }
-		public TValue Target { get; private set; }
-	}
-
-	public struct Transition<TValue, Trigger, TArgs>
-	{
-		public TValue From { get; set; }
-		public Trigger When { get; set; }
-		public TValue Goto { get; set; }
-		public Handler<TValue, Trigger, TArgs> With { get; set; }
-	}
-
-	public interface IStatus
-	{
-		bool HasValue { get; }
-		object Status { get; }
-	}
-
-	public interface IStatus<TValue> : IStatus
-	{
-		TValue Value { get; }
-	}
-
-	public interface IState : IStatus, IEnumerable, IEnumerator, IDisposable
-	{
-		bool Consume(object input);
-		IEnumerator Input { get; }
-		bool Completed { get; }
-		object Context { get; }
-		bool IsFinal { get; }
-	}
-
-	public interface IState<TValue> : IStatus<TValue>, IEnumerable<TValue>, IEnumerator<TValue>, IState
-	{
-		IState<TValue> Build();
-		IState<TValue> Build(object context);
-		IState<TValue> Build(object context, bool ignoreAttributes);
-		IState<TValue> Using();
-		IState<TValue> Using(object context);
-		IState<TValue> Using(object context, TValue start);
-		IState<TValue> Start();
-		IState<TValue> Start(TValue start);
-	}
-
-	public interface IState<TValue, Trigger> : IState<TValue>, IObserver<Trigger>
-	{
-		bool MoveNext(Trigger trigger);
-	}
-
-	public interface IState<TValue, Trigger, TArgs> : IState<TValue, Trigger>, IObserver<Tuple<Trigger, TArgs>>
-	{
-		bool MoveNext(KeyValuePair<Trigger, TArgs> signal);
-		bool MoveNext(Tuple<Trigger, TArgs> signal);
-		bool MoveNext(Trigger trigger, TArgs args);
-	}
-
-	public class State<TValue> : State<TValue, string> { }
-
-	public class State<TValue, Trigger> : State<TValue, Trigger, object> { }
-
-	public class State<TValue, Trigger, TArgs> : IState<TValue, Trigger, TArgs>
-	{
-		protected IDictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>> Edges { get; private set; }
-		protected TValue StartValue { get; private set; }
-		public bool HasValue { get { return (Status != null); } }
-		public object Status { get; protected set; }
-		public TValue Value
-		{
-			get
-			{
-				if (!HasValue)
-					throw new InvalidOperationException("undefined value");
-				return (TValue)Status;
-			}
-			protected set
-			{
-				Status = value;
-			}
-		}
-		public IEnumerator Input { get; private set; }
-		public bool Completed { get { return (Context == null); } }
-		public object Context { get; private set; }
-
-		private void AddTransition(IDictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>> edges, TValue source, Trigger trigger, TValue target, Handler<TValue, Trigger, TArgs> handler)
-		{
-			if (!edges.ContainsKey(source))
-				edges.Add(source, new Dictionary<Trigger, Edge<TValue, Trigger, TArgs>>());
-			edges[source].Add(trigger, new Edge<TValue, Trigger, TArgs>(source, target, handler));
-		}
-
-		private Transition<TValue, Trigger, TArgs> ParseTransition(object untyped)
-		{
-			var type = untyped.GetType();
-			var with = type.GetProperty("With");
-			var value = ((with != null) ? with.GetValue(untyped, null) : null);
-			var source = (TValue)type.GetProperty("From").GetValue(untyped, null);
-			var trigger = (Trigger)type.GetProperty("When").GetValue(untyped, null);
-			var target = (TValue)type.GetProperty("Goto").GetValue(untyped, null);
-			var method = ((with != null) ? ((value is string) ? (((string)value).Contains('.') ? Type.GetType(((string)value).Substring(0, ((string)value).LastIndexOf('.'))) : GetType()).GetMethod((((string)value).Contains('.') ? ((string)value).Substring(((string)value).LastIndexOf('.') + 1) : (string)value), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy) : null) : null);
-			var handler = ((method != null) ? (Handler<TValue, Trigger, TArgs>)Delegate.CreateDelegate(typeof(Handler<TValue, Trigger, TArgs>), (!method.IsStatic ? this : null), method) : ((value is Delegate) ? (Handler<TValue, Trigger, TArgs>)value : null));
-			if ((value is string) && (handler == null))
-				throw new InvalidOperationException(String.Format("Transition handler method {0} not found", value));
-			return new Transition<TValue, Trigger, TArgs> { From = source, When = trigger, Goto = target, With = handler };
-		}
-
-		private void TryHandleError(Exception error)
-		{
-			bool? handled = OnError(error);
-			if (handled.HasValue && !handled.Value)
-				Dispose();
-		}
-
-		protected State() { Build(); }
-
-		protected void Attach(object context)
-		{
-			if (context != null)
-			{
-				Observe(null);
-				Link(context);
-				Context = context;
-			}
-		}
-
-		protected virtual void Link(object context)
-		{
-			if (context is IObservable<Trigger>)
-				Observe(((IObservable<Trigger>)context).Subscribe(this));
-			else if (context is IObservable<Tuple<Trigger, TArgs>>)
-				Observe(((IObservable<Tuple<Trigger, TArgs>>)context).Subscribe(this));
-		}
-
-		protected virtual bool Unlink(object context)
-		{
-			bool isDone = true;
-			if (context is ISignalSource<Trigger>)
-				isDone = ((ISignalSource<Trigger>)context).IsDone(this);
-			else if (context is ISignalSource<Tuple<Trigger, TArgs>>)
-				isDone = ((ISignalSource<Tuple<Trigger, TArgs>>)context).IsDone(this);
-			return isDone;
-		}
-
-		protected void Detach()
-		{
-			Detach(false);
-		}
-
-		protected void Detach(bool force)
-		{
-			if (force || IsFinal)
-				Observe(null);
-		}
-
-		protected void Observe(object source)
-		{
-			Observe(source, true);
-		}
-
-		protected void Observe(object source, bool reattach)
-		{
-			object current = Context;
-			if (source == null)
-			{
-				Context = source;
-				if ((current != null) && reattach)
-				{
-					if (Unlink(current) && (current is IDisposable))
-						((IDisposable)current).Dispose();
-				}
-				Input = null;
-			}
-			else
-				Observe(null, false);
-		}
-
-		protected IState<TValue> Build(Transition<TValue, Trigger, TArgs>[] transitions, object context)
-		{
-			return Build(transitions, context, false);
-		}
-
-		protected IState<TValue> Build(Transition<TValue, Trigger, TArgs>[] transitions, object context, bool ignoreAttributes)
-		{
-			return Build(transitions as IEnumerable, context, ignoreAttributes);
-		}
-
-		protected IState<TValue> Build(IEnumerable transitions, object context)
-		{
-			return Build(transitions, context, false);
-		}
-
-		protected IState<TValue> Build(IEnumerable transitions, object context, bool ignoreAttributes)
-		{
-			if ((Edges == null) || (Edges.Count <= 0))
-			{
-				var edges = new Dictionary<TValue, IDictionary<Trigger, Edge<TValue, Trigger, TArgs>>>();
-				if (!ignoreAttributes)
-				{
-					var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), true);
-					foreach (TransitionAttribute attribute in attributes)
-					{
-						var transition = ParseTransition(attribute);
-						AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
-					}
-				}
-				if (transitions != null)
-				{
-					foreach (var untyped in transitions)
-					{
-						if (untyped != null)
-						{
-							var transition = ParseTransition(untyped);
-							AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
-						}
-					}
-				}
-				Edges = edges;
-			}
-			Attach(context);
-			return this;
-		}
-
-		protected IState<TValue> Using(object context, object start)
-		{
-			if (!Accept(context))
-				throw new InvalidOperationException(String.Format("context type or value not supported ({0})", ((context != null) ? context.GetType().FullName : "null")));
-			Attach(context);
-			Reset((start != null) ? (TValue)start : StartValue);
-			return this;
-		}
-
-		protected virtual bool Accept(object context)
-		{
-			return ((context is IEnumerable<Trigger>) || (context is IObservable<Trigger>) || (context is IObservable<Tuple<Trigger, TArgs>>));
-		}
-
-		protected virtual bool Reset(TValue start)
-		{
-			Value = start;
-			return HasValue;
-		}
-
-		protected virtual void OnStateChange(Trigger trigger, TArgs args, TValue next)
-		{
-		}
-
-		protected virtual void OnStateChanged(TValue from, Trigger trigger, TArgs args)
-		{
-		}
-
-		protected virtual bool? OnError(Exception error)
-		{
-			return null;
-		}
-
-		protected virtual bool? OnError(Exception error, Trigger trigger, TArgs args, TValue next)
-		{
-			return null;
-		}
-
-		public virtual void Reset()
-		{
-			Using();
-		}
-
-		public IState<TValue> Using()
-		{
-			return Using(null);
-		}
-
-		public IState<TValue> Using(object context)
-		{
-			return Using(context, default(TValue));
-		}
-
-		public IState<TValue> Using(object context, TValue start)
-		{
-			return Using(context, start as object);
-		}
-
-		public IState<TValue> Build()
-		{
-			return Build(null);
-		}
-
-		public IState<TValue> Build(object context)
-		{
-			return Build(context, false);
-		}
-
-		public IState<TValue> Build(object context, bool ignoreAttributes)
-		{
-			return Build(null, context, ignoreAttributes);
-		}
-
-		public IState<TValue> Start()
-		{
-			return Start(default(TValue));
-		}
-
-		public IState<TValue> Start(TValue start)
-		{
-			if (!Reset(start))
-				throw new InvalidOperationException("no start state");
-			StartValue = Current;
-			return this;
-		}
-
-		IEnumerator IEnumerable.GetEnumerator()
-		{
-			return GetEnumerator();
-		}
-
-		public IEnumerator<TValue> GetEnumerator()
-		{
-			return this;
-		}
-
-		public virtual void Dispose()
-		{
-			Observe(null);
-		}
-
-		public virtual bool Consume(object input)
-		{
-			if (input is Trigger)
-				return MoveNext((Trigger)input);
-			else if (input is Tuple<Trigger, TArgs>)
-				return MoveNext((Tuple<Trigger, TArgs>)input);
-			else if (input is KeyValuePair<Trigger, TArgs>)
-				return MoveNext((KeyValuePair<Trigger, TArgs>)input);
-			else
-				return false;
-		}
-
-		public virtual bool MoveNext()
-		{
-			if (!IsFinal && (Context != null))
-			{
-				Input = ((Input == null) ? (Input = ((Context is IEnumerable) ? ((IEnumerable)Context).GetEnumerator() : (Context as IEnumerator))) : Input);
-				if (Input != null)
-				{
-					if (Input.MoveNext())
-						return Consume(Input.Current);
-					else
-					{
-						Detach(true);
-						return false;
-					}
-				}
-				else
-					return false;
-			}
-			else
-			{
-				Detach(true);
-				return false;
-			}
-		}
-
-		public bool MoveNext(Trigger trigger)
-		{
-			return MoveNext(new Tuple<Trigger, TArgs>(trigger, default(TArgs)));
-		}
-
-		public bool MoveNext(KeyValuePair<Trigger, TArgs> input)
-		{
-			return MoveNext(new Tuple<Trigger, TArgs>(input.Key, input.Value));
-		}
-
-		public bool MoveNext(Tuple<Trigger, TArgs> input)
-		{
-			return MoveNext(input.Item1, input.Item2);
-		}
-
-		public bool MoveNext(Trigger trigger, TArgs args)
-		{
-			if (!IsFinal && HasValue)
-			{
-				var from = Current;
-				if (Edges[from].ContainsKey(trigger))
-				{
-					var next = Edges[from][trigger].Target;
-					OnStateChange(trigger, args, next);
-					if (Edges[from][trigger].Handler != null)
-					{
-						Exception exception = null, error = null;
-						try
-						{
-							Edges[from][trigger].Handler(this, Current, trigger, next, args);
-						}
-						catch (Exception ex)
-						{
-							var handled = OnError(ex, trigger, args, next);
-							if (handled.HasValue)
-							{
-								if (!handled.Value)
-									exception = ex;
-								else
-									error = ex;
-							}
-						}
-						if (exception != null)
-							throw exception;
-						if (error == null)
-						{
-							Current = next;
-							OnStateChanged(from, trigger, args);
-						}
-					}
-					else
-					{
-						Current = next;
-						OnStateChanged(from, trigger, args);
-					}
-					Detach();
-					return true;
-				}
-				else
-					throw new InvalidOperationException("invalid transition");
-			}
-			else
-			{
-				Detach();
-				return false;
-			}
-		}
-
-		public TValue Current { get { return Value; } protected set { Value = value; } }
-
-		TValue IEnumerator<TValue>.Current { get { return Current; } }
-
-		object IEnumerator.Current { get { return Current; } }
-
-		void IObserver<Trigger>.OnCompleted()
-		{
-			if (!Completed)
-				Dispose();
-		}
-
-		void IObserver<Tuple<Trigger, TArgs>>.OnCompleted()
-		{
-			if (!Completed)
-				Dispose();
-		}
-
-		void IObserver<Trigger>.OnError(Exception error)
-		{
-			TryHandleError(error);
-		}
-
-		void IObserver<Tuple<Trigger, TArgs>>.OnError(Exception error)
-		{
-			TryHandleError(error);
-		}
-
-		void IObserver<Trigger>.OnNext(Trigger value)
-		{
-			Consume(value);
-		}
-
-		void IObserver<Tuple<Trigger, TArgs>>.OnNext(Tuple<Trigger, TArgs> value)
-		{
-			Consume(value);
-		}
-
-		public bool IsFinal { get { return (HasValue && (Edges.Keys.Count > 0) && !Edges.ContainsKey(Current)); } }
-	}
-
-	public interface IMachine<TValue> : IEnumerable<TValue>
-	{
-		IState<TValue> Using();
-		IState<TValue> Using(object context);
-		IState<TValue> Using(object context, TValue start);
-		object Context { get; }
-	}
-
-	public interface IMachine<TState, TValue> : IMachine<TValue>
-		where TState : IState<TValue>
-	{
-	}
-
-	public class Machine<TState, TValue> : Machine<TState, TValue, string>
-		where TState : IState<TValue, string, object>
-	{
-	}
-
-	public class Machine<TState, TValue, Trigger> : Machine<TState, TValue, Trigger, object>
-		where TState : IState<TValue, Trigger, object>
-	{
-	}
-
-	public class Machine<TState, TValue, Trigger, TArgs> : IMachine<TState, TValue>
-		where TState : IState<TValue, Trigger, TArgs>
-	{
-		protected IState<TValue> Using(object context, params object[] args)
-		{
-			IState<TValue> state;
-			if (context != null)
-				Context = context;
-			state = Activator.CreateInstance<TState>().Build(Context);
-			if ((args != null) && (args.Length > 1))
-			{
-				OnStart(state);
-				state.Start((TValue)args[0]);
-				OnStarted(state);
-			}
-			return state;
-		}
-
-		protected virtual void OnStart(IState<TValue> start)
-		{
-		}
-
-		protected virtual void OnStarted(IState<TValue> start)
-		{
-		}
-
-		IEnumerator IEnumerable.GetEnumerator()
-		{
-			return GetEnumerator();
-		}
-
-		public IEnumerator<TValue> GetEnumerator()
-		{
-			return Using();
-		}
-
-		public IState<TValue> Using()
-		{
-			return Using(Context);
-		}
-
-		public IState<TValue> Using(TValue start)
-		{
-			return Using(Context, start);
-		}
-
-		public IState<TValue> Using(object context)
-		{
-			return Using(context, null);
-		}
-
-		public IState<TValue> Using(object context, TValue start)
-		{
-			return Using(context, start, null);
-		}
-
-		public object Context { get; private set; }
-	}
-
-	public interface ISignalling : IDisposable
-	{
-		ISignalling Emit(object signal);
-	}
-
-	public interface ISignalling<Trigger, TArgs> : ISignalling<Tuple<Trigger, TArgs>>
-	{
-		ISignalling<Trigger, TArgs> Emit(Trigger trigger);
-		ISignalling<Trigger, TArgs> Emit(KeyValuePair<Trigger, TArgs> signal);
-		ISignalling<Trigger, TArgs> Emit(Trigger trigger, TArgs args);
-	}
-
-	public interface ISignalling<TSignal> : IObservable<TSignal>, ISignalling
-	{
-		ISignalling<TSignal> Emit(TSignal signal);
-	}
-
-	public interface ISignalSource : ISignalling
-	{
-		bool IsDone();
-	}
-
-	public interface ISignalSource<Trigger, TArgs> : ISignalSource<Tuple<Trigger, TArgs>>, ISignalling<Trigger, TArgs>
-	{
-	}
-
-	public interface ISignalSource<TSignal> : ISignalling<TSignal>, ISignalSource
-	{
-		bool IsDone(IObserver<TSignal> observer);
-	}
-
-	public class SignalSource : SignalSource<string> { }
-
-	public class SignalSource<Trigger> : SignalSource<Trigger, object> { }
-
-	public class SignalSource<Trigger, TArgs> : SignalSourceBase<Tuple<Trigger, TArgs>>, ISignalSource<Trigger, TArgs>
-	{
-		public ISignalling<Trigger, TArgs> Emit(Trigger trigger)
-		{
-			return (ISignalling<Trigger, TArgs>)Emit(new Tuple<Trigger, TArgs>(trigger, default(TArgs)));
-		}
-
-		public ISignalling<Trigger, TArgs> Emit(KeyValuePair<Trigger, TArgs> signal)
-		{
-			return (ISignalling<Trigger, TArgs>)Emit(new Tuple<Trigger, TArgs>(signal.Key, signal.Value));
-		}
-
-		public ISignalling<Trigger, TArgs> Emit(Trigger trigger, TArgs args)
-		{
-			return (ISignalling<Trigger, TArgs>)Emit(new Tuple<Trigger, TArgs>(trigger, args));
-		}
-	}
-
-	public class SignalSourceBase<TSignal> : ISignalSource<TSignal>
-	{
-		protected IDictionary<IDisposable, IObserver<TSignal>> Consumers = new Dictionary<IDisposable, IObserver<TSignal>>();
-
-		protected object Ensure<TSubject>(object subject)
-		{
-			if (subject != null)
-			{
-				if (!(subject is TSubject))
-					throw new InvalidOperationException(String.Format("subject must conform to {0}", typeof(TSubject).FullName));
-			}
-			else
-				throw new ArgumentNullException("subject", "cannot be null");
-			return (TSubject)subject;
-		}
-
-		protected IDisposable Acknowledge(IObserver<TSignal> observer, bool subscribe)
-		{
-			IDisposable consumer = null;
-			if (observer != null)
-			{
-				consumer = (IDisposable)Ensure<IDisposable>(observer);
-				if (subscribe)
-					Consumers[consumer] = observer;
-				else
-				{
-					if (Consumers.ContainsKey(consumer))
-						Consumers.Remove(consumer);
-				}
-			}
-			else
-				Consumers.Clear();
-			return ((Consumers.Count > 0) ? this : null);
-		}
-
-		public void Dispose()
-		{
-			IsDone(null);
-		}
-
-		public IDisposable Subscribe(IObserver<TSignal> observer)
-		{
-			return Acknowledge(observer, true);
-		}
-
-		public ISignalling Emit(object signal)
-		{
-			return Emit((TSignal)Ensure<TSignal>(signal));
-		}
-
-		public ISignalling<TSignal> Emit(TSignal signal)
-		{
-			IObserver<TSignal>[] consumers = Consumers.Values.ToArray();
-			foreach (IObserver<TSignal> consumer in consumers)
-				consumer.OnNext(signal);
-			return this;
-		}
-
-		public bool IsDone()
-		{
-			return IsDone(null);
-		}
-
-		public bool IsDone(IObserver<TSignal> observer)
-		{
-			if (observer == null)
-			{
-				IObserver<TSignal>[] consumers = Consumers.Values.ToArray();
-				foreach (IObserver<TSignal> consumer in consumers)
-					consumer.OnCompleted();
-			}
-			else
-				observer.OnCompleted();
-			return (Acknowledge(observer, false) == null);
-		}
-	}
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+    public class TransitionAttribute : Attribute { }
+
+    public enum ExecutionStep { Start, Leave, Enter, Complete, SourceComplete, SourceError }
+
+    public delegate void Handler<TValue, TData, TArgs>(IState<TValue> state, ExecutionStep step, TValue value, TData info, TArgs args);
+
+    public sealed class Edge<TValue, TData, TArgs>
+    {
+        internal Edge(TValue source, TValue target, Handler<TValue, TData, TArgs> handler) { Source = source; Target = target; Handler = handler; }
+        public Handler<TValue, TData, TArgs> Handler { get; private set; }
+        public TValue Source { get; private set; }
+        public TValue Target { get; private set; }
+    }
+
+    public struct Transition<TValue, TData, TArgs>
+    {
+        public TValue From { get; set; }
+        public TData When { get; set; }
+        public TValue Goto { get; set; }
+        public Handler<TValue, TData, TArgs> With { get; set; }
+    }
+
+    public interface IState
+    {
+        bool IsConstant { get; }
+        bool IsFinal { get; }
+    }
+
+    public interface INamedState : IState
+    {
+        string Moniker { get; }
+    }
+
+    public interface IState<TValue> : IState
+    {
+        bool IsFinalAt(TValue value);
+        TValue Value { get; }
+    }
+
+    public interface IState<TValue, TData> : IState<TValue>, IObserver<TData>
+    {
+        IState<TValue, TData> MoveNext(TData info);
+    }
+
+    public interface IState<TValue, TData, TArgs> : IState<TValue, TData>, IObserver<KeyValuePair<TData, TArgs>>
+    {
+        IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args);
+        IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input);
+    }
+
+    public class State<TValue> : State<TValue, string>
+    {
+        public State() : base() { }
+        public State(TValue value) : base(value) { }
+    }
+
+    public class State<TValue, TData> : State<TValue, TData, object>
+    {
+        public State() : base() { }
+        public State(TValue value) : base(value) { }
+    }
+
+    public class NamedState<TValue> : NamedState<TValue, string> { }
+
+    public class NamedState<TValue, TData> : NamedState<TValue, TData, object> { }
+
+    public class NamedState<TValue, TData, TArgs> : State<TValue, TData, TArgs>, INamedState
+    {
+        private string moniker;
+        public string Moniker
+        {
+            get { return moniker; }
+            protected set
+            {
+                if (moniker != null)
+                    throw new InvalidOperationException("moniker already defined");
+                if (value == null)
+                    throw new ArgumentNullException("value", "cannot be null");
+                moniker = value;
+            }
+        }
+    }
+
+    public class State<TValue, TData, TArgs> : IState<TValue, TData, TArgs>
+    {
+        protected IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> Edges { get; private set; }
+
+        private IDisposable keySubscription;
+        protected IDisposable KeySubscription
+        {
+            get { return keySubscription; }
+            set
+            {
+                var subscription = keySubscription;
+                keySubscription = null;
+                Unsubscribe(subscription);
+                keySubscription = value;
+            }
+        }
+
+        private IDisposable keyValueSubscription;
+        protected IDisposable KeyValueSubscription
+        {
+            get { return keyValueSubscription; }
+            set
+            {
+                var subscription = keyValueSubscription;
+                keyValueSubscription = null;
+                Unsubscribe(subscription);
+                keyValueSubscription = value;
+            }
+        }
+
+        private void Unsubscribe(IDisposable subscription)
+        {
+            if (subscription != null)
+                subscription.Dispose();
+        }
+
+        private void AddTransition(IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> edges, TValue source, TData trigger, TValue target, Handler<TValue, TData, TArgs> handler)
+        {
+            if (!edges.ContainsKey(source))
+                edges.Add(source, new Dictionary<TData, Edge<TValue, TData, TArgs>>());
+            edges[source].Add(trigger, new Edge<TValue, TData, TArgs>(source, target, handler));
+        }
+
+        private Transition<TValue, TData, TArgs> ParseTransition(object untyped)
+        {
+            var type = untyped.GetType();
+            var with = type.GetProperty("With");
+            var value = ((with != null) ? with.GetValue(untyped, null) : null);
+            var source = (TValue)type.GetProperty("From").GetValue(untyped, null);
+            var info = (TData)type.GetProperty("When").GetValue(untyped, null);
+            var target = (TValue)type.GetProperty("Goto").GetValue(untyped, null);
+            var method = ((with != null) ? ((value is string) ? (((string)value).Contains('.') ? Type.GetType(((string)value).Substring(0, ((string)value).LastIndexOf('.'))) : GetType()).GetMethod((((string)value).Contains('.') ? ((string)value).Substring(((string)value).LastIndexOf('.') + 1) : (string)value), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy) : null) : null);
+            var handler = ((method != null) ? (Handler<TValue, TData, TArgs>)Delegate.CreateDelegate(typeof(Handler<TValue, TData, TArgs>), (!method.IsStatic ? this : null), method) : ((value is Delegate) ? (Handler<TValue, TData, TArgs>)value : null));
+            if ((value is string) && (handler == null))
+                throw new InvalidOperationException(String.Format("transition handler method {0} not found", value));
+            return new Transition<TValue, TData, TArgs> { From = source, When = info, Goto = target, With = handler };
+        }
+
+        private TValue Required(TValue value)
+        {
+            if (IsFinalAt(value))
+                throw new InvalidOperationException(String.Format("no state graph edge at {0}", value));
+            return value;
+        }
+
+        public State() { Build(); }
+
+        public State(TValue value) { Build(); Start(value); }
+
+        public State<TValue, TData, TArgs> Build()
+        {
+            return Build(true);
+        }
+
+        public State<TValue, TData, TArgs> Build(bool includeAttributes)
+        {
+            return Build(null, includeAttributes);
+        }
+
+        public State<TValue, TData, TArgs> Build(IEnumerable transitions)
+        {
+            return Build(transitions, true);
+        }
+
+        public State<TValue, TData, TArgs> Build(IEnumerable transitions, bool includeAttributes)
+        {
+            if (IsConstant)
+                throw new InvalidOperationException("cannot modify a state constant");
+            if ((Edges == null) || (Edges.Count == 0))
+            {
+                var edges = new Dictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>>();
+                if (includeAttributes)
+                {
+                    var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), false);
+                    foreach (TransitionAttribute attribute in attributes)
+                    {
+                        var transition = ParseTransition(attribute);
+                        AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
+                    }
+                }
+                if (transitions != null)
+                {
+                    foreach (var untyped in transitions)
+                    {
+                        if (untyped != null)
+                        {
+                            var transition = ParseTransition(untyped);
+                            AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
+                        }
+                    }
+                }
+                Edges = edges;
+            }
+            else
+                throw new InvalidOperationException("state graph already defined");
+            return this;
+        }
+
+        protected IDisposable SubscribeTo(IObservable<TData> source)
+        {
+            KeySubscription = null;
+            return (KeySubscription = ((source != null) ? source.Subscribe(this) : null));
+        }
+
+        protected IDisposable SubscribeTo(IObservable<KeyValuePair<TData, TArgs>> source)
+        {
+            KeyValueSubscription = null;
+            return (KeyValueSubscription = ((source != null) ? source.Subscribe(this) : null));
+        }
+
+        protected void Unsubscribe()
+        {
+            KeySubscription = null;
+            KeyValueSubscription = null;
+        }
+
+        protected virtual KeyValuePair<TData, TArgs> Prepare(KeyValuePair<TData, TArgs> input)
+        {
+            return input;
+        }
+
+        protected virtual void OnStart(TValue value)
+        {
+        }
+
+        protected virtual void OnChange(ExecutionStep step, TValue value, TData info, TArgs args)
+        {
+        }
+
+        protected virtual bool HandleError(Exception exception, ExecutionStep step, TData info, TArgs args, ref TValue next)
+        {
+            return false;
+        }
+
+        protected virtual void OnComplete(bool sourceComplete)
+        {
+        }
+
+        public State<TValue, TData, TArgs> Start(TValue value)
+        {
+            if (IsConstant)
+                throw new InvalidOperationException("cannot modify a state constant");
+            try
+            {
+                OnStart(value);
+                Value = value;
+            }
+            catch (Exception exception)
+            {
+                if (HandleError(exception, ExecutionStep.Start, default(TData), default(TArgs), ref value))
+                    Value = value;
+            }
+            return this;
+        }
+
+        public TValue Value { get; protected set; }
+
+        public State<TValue, TData, TArgs> Using(IObservable<TData> source)
+        {
+            if ((SubscribeTo(source) == null) && (source != null))
+                throw new InvalidOperationException(String.Format("could not subscribe to {0}", typeof(IObservable<TData>).FullName));
+            else
+                return this;
+        }
+
+        public State<TValue, TData, TArgs> Using(IObservable<KeyValuePair<TData, TArgs>> source)
+        {
+            if ((SubscribeTo(source) == null) && (source != null))
+                throw new InvalidOperationException(String.Format("could not subscribe to {0}", typeof(IObservable<KeyValuePair<TData, TArgs>>).FullName));
+            else
+                return this;
+        }
+
+        public IState<TValue, TData> MoveNext(TData input)
+        {
+            return MoveNext(input, default(TArgs));
+        }
+
+        public IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args)
+        {
+            return MoveNext(new KeyValuePair<TData, TArgs>(info, args));
+        }
+
+        public IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input)
+        {
+            var from = Required(Value);
+            input = Prepare(input);
+            if (Edges[from].ContainsKey(input.Key))
+            {
+                var edge = Edges[from][input.Key];
+                var next = edge.Target;
+                var step = ExecutionStep.Leave;
+                try
+                {
+                    var handler = edge.Handler;
+                    OnChange(step, next, input.Key, input.Value);
+                    if (handler != null)
+                        handler(this, step, next, input.Key, input.Value);
+                    step = ExecutionStep.Enter;
+                    Value = next;
+                    if (handler != null)
+                        handler(this, step, from, input.Key, input.Value);
+                    OnChange(step, from, input.Key, input.Value);
+                }
+                catch (Exception exception)
+                {
+                    if (HandleError(exception, step, input.Key, input.Value, ref next))
+                        Value = next;
+                }
+                if (IsFinal)
+                    try
+                    {
+                        OnComplete(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        if (HandleError(exception, ExecutionStep.Complete, input.Key, input.Value, ref next))
+                            Value = next;
+                    }
+                return (!IsFinal ? this : null);
+            }
+            else
+                throw new InvalidOperationException("invalid transition");
+        }
+
+        public void OnCompleted()
+        {
+            var next = Value;
+            try
+            {
+                OnComplete(true);
+            }
+            catch (Exception exception)
+            {
+                if (HandleError(exception, ExecutionStep.SourceComplete, default(TData), default(TArgs), ref next))
+                    Value = next;
+            }
+        }
+
+        public void OnError(Exception exception)
+        {
+            var next = Value;
+            if (HandleError(exception, ExecutionStep.SourceError, default(TData), default(TArgs), ref next))
+                Value = next;
+        }
+
+        private void Next<TInput, TResult>(Func<TInput, TResult> moveNext, TInput input)
+        {
+            moveNext(input);
+        }
+
+        public void OnNext(TData input)
+        {
+            Next<TData, IState<TValue, TData>>(MoveNext, input);
+        }
+
+        public void OnNext(KeyValuePair<TData, TArgs> input)
+        {
+            Next<KeyValuePair<TData, TArgs>, IState<TValue, TData, TArgs>>(MoveNext, input);
+        }
+
+        public bool IsFinalAt(TValue value) { return ((Edges == null) || !Edges.ContainsKey(value)); }
+
+        public bool IsFinal { get { return IsFinalAt(Value); } }
+
+        public bool IsConstant { get { return (this == (object)Value); } }
+    }
+
+    public interface ISignalSource<TData> : IObservable<TData>
+    {
+        ISignalSource<TData> Emit(TData info);
+    }
+
+    public interface ISignalSource<TData, TArgs> : IObservable<KeyValuePair<TData, TArgs>>
+    {
+        ISignalSource<TData, TArgs> Emit(TData info);
+        ISignalSource<TData, TArgs> Emit(TData info, TArgs args);
+    }
+
+    public class SignalSource : SignalSource<string> { }
+
+    public class SignalSource<TData, TArgs> : SignalSource<KeyValuePair<TData, TArgs>>, ISignalSource<TData, TArgs>
+    {
+        public ISignalSource<TData, TArgs> Emit(TData info)
+        {
+            return Emit(info, default(TArgs));
+        }
+
+        public ISignalSource<TData, TArgs> Emit(TData info, TArgs args)
+        {
+            return (ISignalSource<TData, TArgs>)Emit(new KeyValuePair<TData, TArgs>(info, args));
+        }
+    }
+
+    public class SignalSource<TInput> : ISignalSource<TInput>
+    {
+        private readonly HashSet<Subscription> Subscriptions = new HashSet<Subscription>();
+
+        private class Subscription : IDisposable
+        {
+            private readonly SignalSource<TInput> Source;
+            internal Subscription(SignalSource<TInput> source, IObserver<TInput> observer) { Source = source; Observer = observer; }
+            internal IObserver<TInput> Observer { get; private set; }
+            public void Dispose() { Source.RemoveExistingSubscription(this); }
+        }
+
+        private Subscription NewOrExistingSubscription(IObserver<TInput> observer)
+        {
+            var subscription = Subscriptions.Where(item => item.Observer == observer).FirstOrDefault();
+            if (subscription == null)
+            {
+                subscription = new Subscription(this, observer);
+                Subscriptions.Add(subscription);
+            }
+            return subscription;
+        }
+
+        private void RemoveExistingSubscription(Subscription subscription)
+        {
+            if (Subscriptions.Contains(subscription))
+            {
+                var observer = subscription.Observer;
+                try
+                {
+                    try
+                    {
+                        observer.OnCompleted();
+                    }
+                    finally
+                    {
+                        Subscriptions.Remove(subscription);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    observer.OnError(exception);
+                }
+            }
+        }
+
+        public IDisposable Subscribe(IObserver<TInput> observer)
+        {
+            if (observer == null) throw new ArgumentNullException("observer", "cannot be null");
+            return NewOrExistingSubscription(observer);
+        }
+
+        public ISignalSource<TInput> Emit(TInput input)
+        {
+            foreach (var observer in Subscriptions.Select(item => item.Observer).ToArray())
+                try
+                {
+                    observer.OnNext(input);
+                }
+                catch (Exception exception)
+                {
+                    observer.OnError(exception);
+                }
+            return this;
+        }
+    }
 }
