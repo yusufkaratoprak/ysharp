@@ -80,20 +80,20 @@ namespace Test
             private void StateChange(IState<Television> state, ExecutionStep step, Television value, TvOperation info, DateTime args)
             {
                 // Holds during all possible transitions defined in the state graph :
-                System.Diagnostics.Debug.Assert((step != ExecutionStep.Leave) || !state.IsFinal);
+                System.Diagnostics.Debug.Assert((step != ExecutionStep.LeaveState) || !state.IsFinal);
 
                 // Holds in non-static transition handlers like this one :
                 System.Diagnostics.Debug.Assert(this == state);
 
                 switch (step)
                 {
-                    case ExecutionStep.Leave:
+                    case ExecutionStep.LeaveState:
                         var timeStamp = ((args != default(DateTime)) ? String.Format("\t\t(@ {0})", args) : String.Empty);
                         Console.WriteLine();
                         // 'value' is the state value we are transitioning TO :
                         Console.WriteLine("\tLeave :\t{0} -- {1} -> {2}{3}", this, info, value, timeStamp);
                         break;
-                    case ExecutionStep.Enter:
+                    case ExecutionStep.EnterState:
                         // 'value' is the state value we have transitioned FROM :
                         Console.WriteLine("\tEnter :\t{0} -- {1} -> {2}", value, info, this);
                         break;
