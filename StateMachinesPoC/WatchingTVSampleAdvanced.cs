@@ -58,7 +58,7 @@ namespace Test
                 Start(value ?? this);
             }
 
-            // Because it's a reference type, disallow the null value for a start state : 
+            // Because the states' value domain is a reference type, disallow the null value for any start state value : 
             protected override void OnStart(Television value)
             {
                 if (value == null)
@@ -82,7 +82,7 @@ namespace Test
                 // Holds during all possible transitions defined in the state graph :
                 System.Diagnostics.Debug.Assert((step != ExecutionStep.LeaveState) || !state.IsFinal);
 
-                // Holds in non-static transition handlers like this one :
+                // Holds in instance (i.e., non-static) transition handlers like this one :
                 System.Diagnostics.Debug.Assert(this == state);
 
                 switch (step)
@@ -90,11 +90,11 @@ namespace Test
                     case ExecutionStep.LeaveState:
                         var timeStamp = ((args != default(DateTime)) ? String.Format("\t\t(@ {0})", args) : String.Empty);
                         Console.WriteLine();
-                        // 'value' is the state value we are transitioning TO :
+                        // 'value' is the state value that we are transitioning TO :
                         Console.WriteLine("\tLeave :\t{0} -- {1} -> {2}{3}", this, info, value, timeStamp);
                         break;
                     case ExecutionStep.EnterState:
-                        // 'value' is the state value we have transitioned FROM :
+                        // 'value' is the state value that we have transitioned FROM :
                         Console.WriteLine("\tEnter :\t{0} -- {1} -> {2}", value, info, this);
                         break;
                     default:
@@ -109,29 +109,40 @@ namespace Test
         {
             Console.Clear();
 
+            // Create a signal source instance (here, a.k.a. "remote control") that implements
+            // IObservable<TvOperation> and IObservable<KeyValuePair<TvOperation, DateTime>> :
             var remote = new SignalSource<TvOperation, DateTime>();
 
-            // Create the TV state machine set in its start state, and make it subscribe to a compatible signal source,
-            // such as the remote control :
+            // Create a television state machine instance (automatically set in a default start state),
+            // and make it subscribe to a compatible signal source, such as the remote control, precisely :
             var tv = new Television().Using(remote);
+            bool done;
+
+            // Always holds, assuming the call to Using(...) didn't throw an exception (in case of subscription failure) :
+            System.Diagnostics.Debug.Assert(tv != null, "There's a bug somewhere: this message should never be displayed!");
 
             // As commonly done, we can trigger a transition directly on the state machine :
             tv.MoveNext(TvOperation.Plug, DateTime.Now);
 
-            // Alternatively, we can also trigger transitions by emitting from the signal source
-            // that the state machine subscribed to :
+            // Alternatively, we can also trigger transitions by emitting from the signal source / remote control
+            // that the state machine subscribed to / is an observer of :
             remote.Emit(TvOperation.SwitchOn, DateTime.Now);
             remote.Emit(TvOperation.SwitchOff);
             remote.Emit(TvOperation.SwitchOn);
             remote.Emit(TvOperation.SwitchOff, DateTime.Now);
 
-            tv.MoveNext(TvOperation.Unplug);
-            tv.MoveNext(TvOperation.Dispose); // MoveNext(...) returns null iff IsFinal == true
+            done =
+                (
+                    tv.
+                        MoveNext(TvOperation.Unplug).
+                        MoveNext(TvOperation.Dispose) // MoveNext(...) returns null iff tv.IsFinal == true
+                    == null
+                );
 
             remote.Emit(TvOperation.Unplug); // Ignored by the state machine thanks to the OnComplete(...) override above
 
             Console.WriteLine();
-            Console.WriteLine("Is the TV's state '{0}' a final state? {1}", tv.Value, tv.IsFinal);
+            Console.WriteLine("Is the TV's state '{0}' a final state? {1}", tv.Value, done);
 
             Console.WriteLine();
             Console.WriteLine("Press any key...");
