@@ -64,7 +64,7 @@ namespace Machines
 
     public interface IState<out TValue, TData> : IState<TValue>, IObserver<TData>
     {
-        IState<TValue, TData> MoveNext(TData info);
+        IState<TValue, TData> MoveNext(TData input);
     }
 
     public interface IState<out TValue, TData, TArgs> : IState<TValue, TData>, IObserver<KeyValuePair<TData, TArgs>>
@@ -172,6 +172,27 @@ namespace Machines
         private void Next<TInput, TOutput>(Func<TInput, TOutput> moveNext, TInput input)
         {
             moveNext(input);
+        }
+
+        private State<TValue, TData, TArgs> HandleCompletion(ExecutionStep step, KeyValuePair<TData, TArgs>? input)
+        {
+            bool done;
+            if (done = IsFinal)
+            {
+                var info = (input.HasValue ? input.Value.Key : default(TData));
+                var args = (input.HasValue ? input.Value.Value : default(TArgs));
+                var next = Value;
+                try
+                {
+                    OnComplete((step > ExecutionStep.StartState) && !input.HasValue);
+                }
+                catch (Exception exception)
+                {
+                    if (HandleError(exception, step, info, args, ref next))
+                        Value = next;
+                }
+            }
+            return SelfIff(!done || !IsFinal);
         }
 
         private void UnsubscribeFrom(IDisposable subscription)
@@ -302,7 +323,7 @@ namespace Machines
         }
         #endregion
 
-        #region State graph construction
+        #region State graph construction and handling
         #region "Edge star" (transition edge set for same state of origin in the state graph)
         protected class EdgeStar : ReadOnlyDictionary<TData, Edge<TValue, TData, TArgs>>
         {
@@ -323,7 +344,9 @@ namespace Machines
 
         protected IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> Edges { get; private set; }
 
-        protected bool HasEmptyStateGraph { get { return ((Edges == null) || (Edges.Count == 0)); } }
+        protected bool IsEmptyStateGraph { get { return ((Edges == null) || (Edges.Count == 0)); } }
+
+        protected State<TValue, TData, TArgs> SelfIff(bool guard) { return (guard ? this : null); }
 
         protected State<TValue, TData, TArgs> Build()
         {
@@ -344,7 +367,7 @@ namespace Machines
         {
             if (IsConstant)
                 throw new InvalidOperationException("cannot modify a state constant");
-            if (HasEmptyStateGraph)
+            if (IsEmptyStateGraph)
             {
                 var origins = new Dictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>>();
                 if (includeAttributes)
@@ -429,7 +452,7 @@ namespace Machines
 
         protected virtual bool IsFinalState(TValue value)
         {
-            return (HasEmptyStateGraph || !Edges.ContainsKey(value));
+            return (IsEmptyStateGraph || !Edges.ContainsKey(value));
         }
 
         protected virtual bool IsTransitionOrigin(TValue value)
@@ -503,7 +526,7 @@ namespace Machines
         {
             var value = Value;
             Edge<TValue, TData, TArgs> edge;
-            if (HasEmptyStateGraph)
+            if (IsEmptyStateGraph)
                 throw new InvalidOperationException("state graph is empty");
             if (!IsTransitionOrigin(value))
                 throw new InvalidOperationException(String.Format("no transition from {0}", value));
@@ -529,17 +552,7 @@ namespace Machines
                     if (HandleError(exception, step, input.Key, input.Value, ref next))
                         Value = next;
                 }
-                if (IsFinal)
-                    try
-                    {
-                        OnComplete(false);
-                    }
-                    catch (Exception exception)
-                    {
-                        if (HandleError(exception, ExecutionStep.StateComplete, input.Key, input.Value, ref next))
-                            Value = next;
-                    }
-                return (!IsFinal ? this : null);
+                return HandleCompletion(ExecutionStep.StateComplete, input);
             }
             else
                 throw new InvalidOperationException(String.Format("invalid transition from {0}", value));
@@ -549,16 +562,7 @@ namespace Machines
         #region IObserver<TData> and IObserver<KeyValuePair<TData, TArgs>> implementations
         public void OnCompleted()
         {
-            var next = Value;
-            try
-            {
-                OnComplete(true);
-            }
-            catch (Exception exception)
-            {
-                if (HandleError(exception, ExecutionStep.SourceComplete, default(TData), default(TArgs), ref next))
-                    Value = next;
-            }
+            HandleCompletion(ExecutionStep.SourceComplete, null);
         }
 
         public void OnError(Exception exception)
@@ -570,12 +574,12 @@ namespace Machines
 
         public void OnNext(TData input)
         {
-            Next<TData, IState<TValue, TData>>(MoveNext, input);
+            Next(MoveNext, input);
         }
 
         public void OnNext(KeyValuePair<TData, TArgs> input)
         {
-            Next<KeyValuePair<TData, TArgs>, IState<TValue, TData, TArgs>>(MoveNext, input);
+            Next(MoveNext, input);
         }
         #endregion
 
@@ -594,7 +598,7 @@ namespace Machines
                 if (HandleError(exception, ExecutionStep.StartState, default(TData), default(TArgs), ref value))
                     Value = value;
             }
-            return this;
+            return HandleCompletion(ExecutionStep.StartState, null);
         }
 
         public State<TValue, TData, TArgs> Using(IObservable<TData> source)
