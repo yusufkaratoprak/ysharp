@@ -21,10 +21,10 @@ namespace Test
             public static readonly Television On = new Television("(TV On)");
             public static readonly Television Disposed = new Television("(Disposed TV)");
 
-            // For convenience, enter the start state when the parameterless constructor executes :
+            // For convenience, enter the default start state when the parameterless constructor executes :
             public Television() : this(Television.Unplugged) { }
 
-            // To create a state machine instance :
+            // To create a state machine instance, with a given start state :
             private Television(Television value) : this(null, value) { }
 
             // To create a possible state constant :
