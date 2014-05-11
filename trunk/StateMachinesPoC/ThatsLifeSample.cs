@@ -44,10 +44,8 @@ namespace Test
                 { "die", "Death" }
             };
 
-            // For convenience, enter the start state when the parameterless constructor executes :
-            public Person() : base(Status.Unborn) { }
-
-            // For client's convenience, map some verbs to the corresponding valid transition nouns :
+            // For convenience, map some verbs to the corresponding valid transition nouns
+            // (this will be taken into account during calls to IState<...>.MoveNext(...)) :
             protected override KeyValuePair<string, DateTime> Prepare(KeyValuePair<string, DateTime> input)
             {
                 return base.Prepare(new KeyValuePair<string, DateTime>(VerbToNoun.ContainsKey(input.Key) ? VerbToNoun[input.Key] : input.Key, input.Value));
@@ -59,7 +57,7 @@ namespace Test
                 if (step == ExecutionStep.EnterState)
                 {
                     var timeStamp = String.Format("\t\t(@ {0})", (args != default(DateTime)) ? args : DateTime.Now);
-                    // 'value' is the state value we have transitioned FROM :
+                    // 'value' is the state value that we have transitioned FROM :
                     Console.WriteLine("\t{0} -- {1} -> {2}{3}", value, info, this, timeStamp);
                 }
             }
@@ -71,19 +69,28 @@ namespace Test
         {
             Console.Clear();
 
-            // Create the person state machine set in its start state :
-            var joe = new Person();
+            // Create a person state machine instance, and return it, set in some start state :
+            var joe = new Person().Start(Status.Unborn);
+            bool done;
 
-            // Trigger state transitions with or without the DateTime argument :
-            joe.MoveNext("born", new DateTime(1963, 2, 1)); // equivalent to : joe.MoveNext("Birth", ...)
-            joe.MoveNext("graduate", new DateTime(1980, 6, 5));
-            joe.MoveNext("work", new DateTime(1981, 7, 6));
-            joe.MoveNext("Lay off", new DateTime(1982, 8, 7)); // equivalent to : joe.MoveNext("laid off", ...)
-            joe.MoveNext("work", new DateTime(1983, 9, 8));
-            joe.MoveNext("retire");
+            // Holds iff the chosen start state isn't a final state :
+            System.Diagnostics.Debug.Assert(joe != null, "The chosen start state is a final state!");
+
+            // Trigger state transitions with or without the (optional) DateTime argument :
+            done =
+                (
+                    joe.
+                        MoveNext("born", new DateTime(1963, 2, 1)). // equivalent to : joe.MoveNext("Birth", ...)
+                        MoveNext("graduate", new DateTime(1980, 6, 5)).
+                        MoveNext("work", new DateTime(1981, 7, 6)).
+                        MoveNext("Lay off", new DateTime(1982, 8, 7)). // equivalent to : joe.MoveNext("laid off", ...)
+                        MoveNext("work", new DateTime(1983, 9, 8)).
+                        MoveNext("retire") // MoveNext(...) returns null iff joe.IsFinal == true
+                    == null
+                );
 
             Console.WriteLine();
-            Console.WriteLine("Is Joe's state '{0}' a final state? {1}", joe.Value, joe.IsFinal);
+            Console.WriteLine("Is Joe's state '{0}' a final state? {1}", joe.Value, done);
 
             Console.WriteLine();
             Console.WriteLine("Press any key...");
