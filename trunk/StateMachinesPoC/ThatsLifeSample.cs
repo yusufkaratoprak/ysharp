@@ -47,7 +47,7 @@ namespace Test
             // For convenience, enter the start state when the parameterless constructor executes :
             public Person() : base(Status.Unborn) { }
 
-            // Map verbs possibly emitted by a signal source to the corresponding valid transition nouns :
+            // For client's convenience, map some verbs to the corresponding valid transition nouns :
             protected override KeyValuePair<string, DateTime> Prepare(KeyValuePair<string, DateTime> input)
             {
                 return base.Prepare(new KeyValuePair<string, DateTime>(VerbToNoun.ContainsKey(input.Key) ? VerbToNoun[input.Key] : input.Key, input.Value));
@@ -56,7 +56,7 @@ namespace Test
             // Executed before and after every state transition :
             protected override void OnChange(ExecutionStep step, Status value, string info, DateTime args)
             {
-                if (step == ExecutionStep.Enter)
+                if (step == ExecutionStep.EnterState)
                 {
                     var timeStamp = String.Format("\t\t(@ {0})", (args != default(DateTime)) ? args : DateTime.Now);
                     // 'value' is the state value we have transitioned FROM :
