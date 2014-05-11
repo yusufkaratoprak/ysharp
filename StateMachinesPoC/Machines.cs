@@ -184,7 +184,7 @@ namespace Machines
                 var next = Value;
                 try
                 {
-                    OnComplete((step > ExecutionStep.StartState) && !input.HasValue);
+                    OnComplete(step != ExecutionStep.SourceComplete);
                 }
                 catch (Exception exception)
                 {
@@ -482,7 +482,7 @@ namespace Machines
         {
         }
 
-        protected virtual void OnComplete(bool sourceComplete)
+        protected virtual void OnComplete(bool stateComplete)
         {
         }
 
