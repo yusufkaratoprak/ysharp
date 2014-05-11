@@ -40,7 +40,7 @@ namespace Test
             // Executed before and after every state transition :
             protected override void OnChange(ExecutionStep step, Status value, string info, object args)
             {
-                if (step == ExecutionStep.Enter)
+                if (step == ExecutionStep.EnterState)
                 {
                     // 'value' is the state value we have transitioned FROM :
                     Console.WriteLine("\t{0} -- {1} -> {2}", value, info, this);
