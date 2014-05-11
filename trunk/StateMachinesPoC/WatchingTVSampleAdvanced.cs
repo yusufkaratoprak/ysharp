@@ -65,17 +65,21 @@ namespace Test
                     throw new ArgumentNullException("value", "cannot be null");
             }
 
-            // When reaching a final state, unsubscribe from the signal source(s), if any :
+            // When reaching a final state, unsubscribe from all the signal source(s), if any :
             protected override void OnComplete(bool sourceComplete)
             {
+                // Holds during all transitions into a final state
+                // (i.e., not sourceComplete implies IsFinal) :
+                System.Diagnostics.Debug.Assert(sourceComplete || IsFinal);
+
                 if (!sourceComplete)
-                    Unsubscribe();
+                    UnsubscribeFromAll();
             }
 
             // Executed before and after every state transition :
             private void StateChange(IState<Television> state, ExecutionStep step, Television value, TvOperation info, DateTime args)
             {
-                // Holds for all possible transitions defined in the state graph :
+                // Holds during all possible transitions defined in the state graph :
                 System.Diagnostics.Debug.Assert((step != ExecutionStep.Leave) || !state.IsFinal);
 
                 // Holds in non-static transition handlers like this one :
