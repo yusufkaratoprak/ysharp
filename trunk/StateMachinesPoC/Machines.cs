@@ -310,7 +310,7 @@ namespace Machines
             return (HasEmptyStateGraph || !Edges.ContainsKey(value));
         }
 
-        protected virtual bool IsTransitionStart(TValue value)
+        protected virtual bool CanBeTransitionStart(TValue value)
         {
             return !IsFinal;
         }
@@ -486,7 +486,7 @@ namespace Machines
             Edge<TValue, TData, TArgs> edge;
             if (HasEmptyStateGraph)
                 throw new InvalidOperationException("state graph is empty");
-            if (!IsTransitionStart(value))
+            if (!CanBeTransitionStart(value))
                 throw new InvalidOperationException(String.Format("no transition from {0}", value));
             input = Prepare(input);
             if ((edge = FollowableEdgeFor(value, input)) != null)
