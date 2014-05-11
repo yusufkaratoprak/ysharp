@@ -6,29 +6,44 @@ using System.Text;
 
 namespace Machines
 {
+    #region State graph definition
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
     public class TransitionAttribute : Attribute { }
 
-    public enum ExecutionStep { Start, Leave, Enter, Complete, SourceComplete, SourceError }
-
-    public delegate void Handler<TValue, TData, TArgs>(IState<TValue> state, ExecutionStep step, TValue value, TData info, TArgs args);
-
     public sealed class Edge<TValue, TData, TArgs>
     {
+        #region Internal members
         internal Edge(TValue source, TValue target, Handler<TValue, TData, TArgs> handler) { Source = source; Target = target; Handler = handler; }
+        #endregion
+
+        #region Public members
         public Handler<TValue, TData, TArgs> Handler { get; private set; }
         public TValue Source { get; private set; }
         public TValue Target { get; private set; }
+        #endregion
     }
 
     public struct Transition<TValue, TData, TArgs>
     {
+        #region Public members
         public TValue From { get; set; }
-        public TData When { get; set; }
-        public TValue Goto { get; set; }
-        public Handler<TValue, TData, TArgs> With { get; set; }
-    }
 
+        public TData When { get; set; }
+
+        public TValue Goto { get; set; }
+
+        public Handler<TValue, TData, TArgs> With { get; set; }
+        #endregion
+    }
+    #endregion
+
+    #region State transition handling
+    public enum ExecutionStep { Start, Leave, Enter, Complete, SourceComplete, SourceError }
+
+    public delegate void Handler<in TValue, in TData, in TArgs>(IState<TValue> state, ExecutionStep step, TValue value, TData info, TArgs args);
+    #endregion
+
+    #region State object interfaces
     public interface IState
     {
         bool IsConstant { get; }
@@ -40,42 +55,73 @@ namespace Machines
         string Moniker { get; }
     }
 
-    public interface IState<TValue> : IState
+    public interface IState<out TValue> : IState
     {
-        bool IsFinalAt(TValue value);
         TValue Value { get; }
     }
 
-    public interface IState<TValue, TData> : IState<TValue>, IObserver<TData>
+    public interface IState<out TValue, TData> : IState<TValue>, IObserver<TData>
     {
         IState<TValue, TData> MoveNext(TData info);
     }
 
-    public interface IState<TValue, TData, TArgs> : IState<TValue, TData>, IObserver<KeyValuePair<TData, TArgs>>
+    public interface IState<out TValue, TData, TArgs> : IState<TValue, TData>, IObserver<KeyValuePair<TData, TArgs>>
     {
         IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args);
         IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input);
     }
+    #endregion
 
+    #region State object implementations
     public class State<TValue> : State<TValue, string>
     {
+        #region Public constructors
         public State() : base() { }
+
         public State(TValue value) : base(value) { }
+        #endregion
     }
 
     public class State<TValue, TData> : State<TValue, TData, object>
     {
+        #region Public constructors
         public State() : base() { }
+
         public State(TValue value) : base(value) { }
+        #endregion
     }
 
-    public class NamedState<TValue> : NamedState<TValue, string> { }
+    public class NamedState<TValue> : NamedState<TValue, string>
+    {
+        #region Public constructors
+        public NamedState() : base() { }
 
-    public class NamedState<TValue, TData> : NamedState<TValue, TData, object> { }
+        public NamedState(TValue value) : base(value) { }
+        #endregion
+    }
+
+    public class NamedState<TValue, TData> : NamedState<TValue, TData, object>
+    {
+        #region Public constructors
+        public NamedState() : base() { }
+
+        public NamedState(TValue value) : base(value) { }
+        #endregion
+    }
 
     public class NamedState<TValue, TData, TArgs> : State<TValue, TData, TArgs>, INamedState
     {
+        #region Private members
         private string moniker;
+        #endregion
+
+        #region Public constructors
+        public NamedState() : base() { }
+
+        public NamedState(TValue value) : base(value) { }
+        #endregion
+
+        #region INamedState implementation
         public string Moniker
         {
             get { return moniker; }
@@ -88,48 +134,20 @@ namespace Machines
                 moniker = value;
             }
         }
+        #endregion
     }
 
     public class State<TValue, TData, TArgs> : IState<TValue, TData, TArgs>
     {
-        protected IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> Edges { get; private set; }
-
+        #region Private members
         private IDisposable keySubscription;
-        protected IDisposable KeySubscription
-        {
-            get { return keySubscription; }
-            set
-            {
-                var subscription = keySubscription;
-                keySubscription = null;
-                Unsubscribe(subscription);
-                keySubscription = value;
-            }
-        }
-
+        
         private IDisposable keyValueSubscription;
-        protected IDisposable KeyValueSubscription
-        {
-            get { return keyValueSubscription; }
-            set
-            {
-                var subscription = keyValueSubscription;
-                keyValueSubscription = null;
-                Unsubscribe(subscription);
-                keyValueSubscription = value;
-            }
-        }
 
-        private void Unsubscribe(IDisposable subscription)
-        {
-            if (subscription != null)
-                subscription.Dispose();
-        }
-
-        private void AddTransition(IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> edges, TValue source, TData trigger, TValue target, Handler<TValue, TData, TArgs> handler)
+        private void AddTransition(IDictionary<TValue, EdgeSet> edges, TValue source, TData trigger, TValue target, Handler<TValue, TData, TArgs> handler)
         {
             if (!edges.ContainsKey(source))
-                edges.Add(source, new Dictionary<TData, Edge<TValue, TData, TArgs>>());
+                edges.Add(source, new EdgeSet());
             edges[source].Add(trigger, new Edge<TValue, TData, TArgs>(source, target, handler));
         }
 
@@ -148,39 +166,194 @@ namespace Machines
             return new Transition<TValue, TData, TArgs> { From = source, When = info, Goto = target, With = handler };
         }
 
-        private TValue Required(TValue value)
+        private void Next<TInput, TResult>(Func<TInput, TResult> moveNext, TInput input)
         {
-            if (IsFinalAt(value))
-                throw new InvalidOperationException(String.Format("no state graph edge at {0}", value));
-            return value;
+            moveNext(input);
         }
 
-        public State() { Build(); }
+        private void UnsubscribeFrom(IDisposable subscription)
+        {
+            if (subscription != null)
+                subscription.Dispose();
+        }
+        #endregion
 
-        public State(TValue value) { Build(); Start(value); }
+        #region Protected members
+        #region Read-only dictionary
+        protected class ReadOnlyDictionary<K, V> : IDictionary<K, V>
+        {
+            #region Private members
+            private readonly IDictionary<K, V> dictionary;
+            #endregion
 
-        public State<TValue, TData, TArgs> Build()
+            #region Internal constructor
+            internal ReadOnlyDictionary(IDictionary<K, V> dictionary)
+            {
+                if (dictionary == null)
+                    throw new ArgumentNullException("dictionary", "cannot be null");
+                this.dictionary = dictionary;
+            }
+            #endregion
+
+            #region Implementation
+            void IDictionary<K, V>.Add(K key, V value)
+            {
+                throw ReadOnlyException();
+            }
+
+            public bool ContainsKey(K key)
+            {
+                return dictionary.ContainsKey(key);
+            }
+
+            public ICollection<K> Keys
+            {
+                get { return dictionary.Keys; }
+            }
+
+            bool IDictionary<K, V>.Remove(K key)
+            {
+                throw ReadOnlyException();
+            }
+
+            public bool TryGetValue(K key, out V value)
+            {
+                return dictionary.TryGetValue(key, out value);
+            }
+
+            public ICollection<V> Values
+            {
+                get { return dictionary.Values; }
+            }
+
+            public V this[K key]
+            {
+                get
+                {
+                    return dictionary[key];
+                }
+            }
+
+            V IDictionary<K, V>.this[K key]
+            {
+                get
+                {
+                    return this[key];
+                }
+                set
+                {
+                    throw ReadOnlyException();
+                }
+            }
+
+            void ICollection<KeyValuePair<K, V>>.Add(KeyValuePair<K, V> item)
+            {
+                throw ReadOnlyException();
+            }
+
+            void ICollection<KeyValuePair<K, V>>.Clear()
+            {
+                throw ReadOnlyException();
+            }
+
+            public bool Contains(KeyValuePair<K, V> item)
+            {
+                return dictionary.Contains(item);
+            }
+
+            public void CopyTo(KeyValuePair<K, V>[] array, int arrayIndex)
+            {
+                dictionary.CopyTo(array, arrayIndex);
+            }
+
+            public int Count
+            {
+                get { return dictionary.Count; }
+            }
+
+            public bool IsReadOnly
+            {
+                get { return true; }
+            }
+
+            bool ICollection<KeyValuePair<K, V>>.Remove(KeyValuePair<K, V> item)
+            {
+                throw ReadOnlyException();
+            }
+
+            public IEnumerator<KeyValuePair<K, V>> GetEnumerator()
+            {
+                return dictionary.GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+
+            private static Exception ReadOnlyException()
+            {
+                return new NotSupportedException("dictionary is read-only");
+            }
+            #endregion
+        }
+        #endregion
+
+        #region Overridable helpers
+        protected virtual bool IsConstantState(TValue value)
+        {
+            return (this == (object)Value);
+        }
+
+        protected virtual bool IsFinalState(TValue value)
+        {
+            return (HasEmptyStateGraph || !Edges.ContainsKey(value));
+        }
+
+        protected virtual bool IsTransitionStart(TValue value)
+        {
+            return !IsFinal;
+        }
+
+        protected virtual Edge<TValue, TData, TArgs> FollowableEdgeFor(TValue value, KeyValuePair<TData, TArgs> input)
+        {
+            Edge<TValue, TData, TArgs> edge;
+            EdgeSet edges;
+            return ((Edges.TryGetValue(value, out edges)) && edges.TryGetValue(input.Key, out edge) ? edge : null);
+        }
+        #endregion
+
+        #region State graph construction
+        #region Edge set helper (for same state of origin in the state graph)
+        protected class EdgeSet : Dictionary<TData, Edge<TValue, TData, TArgs>> { }
+        #endregion
+
+        protected ReadOnlyDictionary<TValue, EdgeSet> Edges { get; private set; }
+
+        protected bool HasEmptyStateGraph { get { return ((Edges == null) || (Edges.Count == 0)); } }
+
+        protected State<TValue, TData, TArgs> Build()
         {
             return Build(true);
         }
 
-        public State<TValue, TData, TArgs> Build(bool includeAttributes)
+        protected State<TValue, TData, TArgs> Build(bool includeAttributes)
         {
             return Build(null, includeAttributes);
         }
 
-        public State<TValue, TData, TArgs> Build(IEnumerable transitions)
+        protected State<TValue, TData, TArgs> Build(IEnumerable transitions)
         {
             return Build(transitions, true);
         }
 
-        public State<TValue, TData, TArgs> Build(IEnumerable transitions, bool includeAttributes)
+        protected State<TValue, TData, TArgs> Build(IEnumerable transitions, bool includeAttributes)
         {
             if (IsConstant)
                 throw new InvalidOperationException("cannot modify a state constant");
-            if ((Edges == null) || (Edges.Count == 0))
+            if (HasEmptyStateGraph)
             {
-                var edges = new Dictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>>();
+                var edges = new Dictionary<TValue, EdgeSet>();
                 if (includeAttributes)
                 {
                     var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), false);
@@ -201,11 +374,37 @@ namespace Machines
                         }
                     }
                 }
-                Edges = edges;
+                Edges = new ReadOnlyDictionary<TValue, EdgeSet>(edges);
             }
             else
                 throw new InvalidOperationException("state graph already defined");
             return this;
+        }
+        #endregion
+
+        #region Subscribe to / unsubscribe from signal sources
+        protected IDisposable KeySubscription
+        {
+            get { return keySubscription; }
+            set
+            {
+                var subscription = keySubscription;
+                keySubscription = null;
+                UnsubscribeFrom(subscription);
+                keySubscription = value;
+            }
+        }
+
+        protected IDisposable KeyValueSubscription
+        {
+            get { return keyValueSubscription; }
+            set
+            {
+                var subscription = keyValueSubscription;
+                keyValueSubscription = null;
+                UnsubscribeFrom(subscription);
+                keyValueSubscription = value;
+            }
         }
 
         protected IDisposable SubscribeTo(IObservable<TData> source)
@@ -220,12 +419,14 @@ namespace Machines
             return (KeyValueSubscription = ((source != null) ? source.Subscribe(this) : null));
         }
 
-        protected void Unsubscribe()
+        protected void UnsubscribeFromAll()
         {
             KeySubscription = null;
             KeyValueSubscription = null;
         }
+        #endregion
 
+        #region Overridable state transition and error handling
         protected virtual KeyValuePair<TData, TArgs> Prepare(KeyValuePair<TData, TArgs> input)
         {
             return input;
@@ -239,55 +440,41 @@ namespace Machines
         {
         }
 
-        protected virtual bool HandleError(Exception exception, ExecutionStep step, TData info, TArgs args, ref TValue next)
-        {
-            return false;
-        }
-
         protected virtual void OnComplete(bool sourceComplete)
         {
         }
 
-        public State<TValue, TData, TArgs> Start(TValue value)
+        protected virtual bool HandleError(Exception exception, ExecutionStep step, TData info, TArgs args, ref TValue next)
         {
-            if (IsConstant)
-                throw new InvalidOperationException("cannot modify a state constant");
-            try
-            {
-                OnStart(value);
-                Value = value;
-            }
-            catch (Exception exception)
-            {
-                if (HandleError(exception, ExecutionStep.Start, default(TData), default(TArgs), ref value))
-                    Value = value;
-            }
-            return this;
+            return false;
         }
+        #endregion
+        #endregion
 
+        #region Public constructors
+        public State() { Build(); }
+
+        public State(TValue value) { Build(); Start(value); }
+        #endregion
+
+        #region IState implementation
+        public bool IsConstant { get { return IsConstantState(Value); } }
+
+        public bool IsFinal { get { return IsFinalState(Value); } }
+        #endregion
+
+        #region IState<out TValue> implementation
         public TValue Value { get; protected set; }
+        #endregion
 
-        public State<TValue, TData, TArgs> Using(IObservable<TData> source)
-        {
-            if ((SubscribeTo(source) == null) && (source != null))
-                throw new InvalidOperationException(String.Format("could not subscribe to {0}", typeof(IObservable<TData>).FullName));
-            else
-                return this;
-        }
-
-        public State<TValue, TData, TArgs> Using(IObservable<KeyValuePair<TData, TArgs>> source)
-        {
-            if ((SubscribeTo(source) == null) && (source != null))
-                throw new InvalidOperationException(String.Format("could not subscribe to {0}", typeof(IObservable<KeyValuePair<TData, TArgs>>).FullName));
-            else
-                return this;
-        }
-
+        #region IState<out TValue, TData> implementation
         public IState<TValue, TData> MoveNext(TData input)
         {
             return MoveNext(input, default(TArgs));
         }
+        #endregion
 
+        #region IState<out TValue, TData, TArgs> implementation
         public IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args)
         {
             return MoveNext(new KeyValuePair<TData, TArgs>(info, args));
@@ -295,11 +482,15 @@ namespace Machines
 
         public IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input)
         {
-            var from = Required(Value);
+            var value = Value;
+            Edge<TValue, TData, TArgs> edge;
+            if (HasEmptyStateGraph)
+                throw new InvalidOperationException("state graph is empty");
+            if (!IsTransitionStart(value))
+                throw new InvalidOperationException(String.Format("no transition from {0}", value));
             input = Prepare(input);
-            if (Edges[from].ContainsKey(input.Key))
+            if ((edge = FollowableEdgeFor(value, input)) != null)
             {
-                var edge = Edges[from][input.Key];
                 var next = edge.Target;
                 var step = ExecutionStep.Leave;
                 try
@@ -311,8 +502,8 @@ namespace Machines
                     step = ExecutionStep.Enter;
                     Value = next;
                     if (handler != null)
-                        handler(this, step, from, input.Key, input.Value);
-                    OnChange(step, from, input.Key, input.Value);
+                        handler(this, step, value, input.Key, input.Value);
+                    OnChange(step, value, input.Key, input.Value);
                 }
                 catch (Exception exception)
                 {
@@ -332,9 +523,11 @@ namespace Machines
                 return (!IsFinal ? this : null);
             }
             else
-                throw new InvalidOperationException("invalid transition");
+                throw new InvalidOperationException(String.Format("invalid transition from {0}", value));
         }
+        #endregion
 
+        #region IObserver<TData> and IObserver<KeyValuePair<TData, TArgs>> implementations
         public void OnCompleted()
         {
             var next = Value;
@@ -356,11 +549,6 @@ namespace Machines
                 Value = next;
         }
 
-        private void Next<TInput, TResult>(Func<TInput, TResult> moveNext, TInput input)
-        {
-            moveNext(input);
-        }
-
         public void OnNext(TData input)
         {
             Next<TData, IState<TValue, TData>>(MoveNext, input);
@@ -370,14 +558,46 @@ namespace Machines
         {
             Next<KeyValuePair<TData, TArgs>, IState<TValue, TData, TArgs>>(MoveNext, input);
         }
+        #endregion
 
-        public bool IsFinalAt(TValue value) { return ((Edges == null) || !Edges.ContainsKey(value)); }
+        #region Public members
+        public State<TValue, TData, TArgs> Start(TValue value)
+        {
+            if (IsConstant)
+                throw new InvalidOperationException("cannot modify a state constant");
+            try
+            {
+                OnStart(value);
+                Value = value;
+            }
+            catch (Exception exception)
+            {
+                if (HandleError(exception, ExecutionStep.Start, default(TData), default(TArgs), ref value))
+                    Value = value;
+            }
+            return this;
+        }
 
-        public bool IsFinal { get { return IsFinalAt(Value); } }
+        public State<TValue, TData, TArgs> Using(IObservable<TData> source)
+        {
+            if ((SubscribeTo(source) == null) && (source != null))
+                throw new InvalidOperationException(String.Format("could not subscribe to {0}", typeof(IObservable<TData>).FullName));
+            else
+                return this;
+        }
 
-        public bool IsConstant { get { return (this == (object)Value); } }
+        public State<TValue, TData, TArgs> Using(IObservable<KeyValuePair<TData, TArgs>> source)
+        {
+            if ((SubscribeTo(source) == null) && (source != null))
+                throw new InvalidOperationException(String.Format("could not subscribe to {0}", typeof(IObservable<KeyValuePair<TData, TArgs>>).FullName));
+            else
+                return this;
+        }
+        #endregion
     }
+    #endregion
 
+    #region Signal source interfaces
     public interface ISignalSource<TData> : IObservable<TData>
     {
         ISignalSource<TData> Emit(TData info);
@@ -388,11 +608,14 @@ namespace Machines
         ISignalSource<TData, TArgs> Emit(TData info);
         ISignalSource<TData, TArgs> Emit(TData info, TArgs args);
     }
+    #endregion
 
+    #region Signal source implementations
     public class SignalSource : SignalSource<string> { }
 
     public class SignalSource<TData, TArgs> : SignalSource<KeyValuePair<TData, TArgs>>, ISignalSource<TData, TArgs>
     {
+        #region ISignalSource<TData, TArgs> implementation
         public ISignalSource<TData, TArgs> Emit(TData info)
         {
             return Emit(info, default(TArgs));
@@ -402,18 +625,31 @@ namespace Machines
         {
             return (ISignalSource<TData, TArgs>)Emit(new KeyValuePair<TData, TArgs>(info, args));
         }
+        #endregion
     }
 
     public class SignalSource<TInput> : ISignalSource<TInput>
     {
+        #region Private members
         private readonly HashSet<Subscription> Subscriptions = new HashSet<Subscription>();
 
         private class Subscription : IDisposable
         {
+            #region Private members
             private readonly SignalSource<TInput> Source;
+            #endregion
+
+            #region Internal constructor
             internal Subscription(SignalSource<TInput> source, IObserver<TInput> observer) { Source = source; Observer = observer; }
+            #endregion
+
+            #region Internal members
             internal IObserver<TInput> Observer { get; private set; }
+            #endregion
+
+            #region IDisposable implementation
             public void Dispose() { Source.RemoveExistingSubscription(this); }
+            #endregion
         }
 
         private Subscription NewOrExistingSubscription(IObserver<TInput> observer)
@@ -449,13 +685,17 @@ namespace Machines
                 }
             }
         }
+        #endregion
 
+        #region IObservable<out TInput> implementation
         public IDisposable Subscribe(IObserver<TInput> observer)
         {
             if (observer == null) throw new ArgumentNullException("observer", "cannot be null");
             return NewOrExistingSubscription(observer);
         }
+        #endregion
 
+        #region ISignalSource<TInput> implementation
         public ISignalSource<TInput> Emit(TInput input)
         {
             foreach (var observer in Subscriptions.Select(item => item.Observer).ToArray())
@@ -469,5 +709,7 @@ namespace Machines
                 }
             return this;
         }
+        #endregion
     }
+    #endregion
 }
