@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,7 +17,9 @@ namespace Machines
 
         #region Public members
         public Handler<TValue, TData, TArgs> Handler { get; private set; }
+
         public TValue Source { get; private set; }
+
         public TValue Target { get; private set; }
         #endregion
     }
@@ -38,7 +39,7 @@ namespace Machines
     #endregion
 
     #region State transition handling
-    public enum ExecutionStep { Start, Leave, Enter, Complete, SourceComplete, SourceError }
+    public enum ExecutionStep { StartState, LeaveState, EnterState, StateComplete, SourceComplete, SourceError }
 
     public delegate void Handler<in TValue, in TData, in TArgs>(IState<TValue> state, ExecutionStep step, TValue value, TData info, TArgs args);
     #endregion
@@ -47,6 +48,7 @@ namespace Machines
     public interface IState
     {
         bool IsConstant { get; }
+
         bool IsFinal { get; }
     }
 
@@ -68,6 +70,7 @@ namespace Machines
     public interface IState<out TValue, TData, TArgs> : IState<TValue, TData>, IObserver<KeyValuePair<TData, TArgs>>
     {
         IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args);
+
         IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input);
     }
     #endregion
@@ -144,11 +147,11 @@ namespace Machines
         
         private IDisposable keyValueSubscription;
 
-        private void AddTransition(IDictionary<TValue, EdgeSet> edges, TValue source, TData trigger, TValue target, Handler<TValue, TData, TArgs> handler)
+        private void AddTransition(IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> origins, TValue source, TData trigger, TValue target, Handler<TValue, TData, TArgs> handler)
         {
-            if (!edges.ContainsKey(source))
-                edges.Add(source, new EdgeSet());
-            edges[source].Add(trigger, new Edge<TValue, TData, TArgs>(source, target, handler));
+            if (!origins.ContainsKey(source))
+                origins.Add(source, new Dictionary<TData, Edge<TValue, TData, TArgs>>());
+            origins[source].Add(trigger, new Edge<TValue, TData, TArgs>(source, target, handler));
         }
 
         private Transition<TValue, TData, TArgs> ParseTransition(object untyped)
@@ -166,7 +169,7 @@ namespace Machines
             return new Transition<TValue, TData, TArgs> { From = source, When = info, Goto = target, With = handler };
         }
 
-        private void Next<TInput, TResult>(Func<TInput, TResult> moveNext, TInput input)
+        private void Next<TInput, TOutput>(Func<TInput, TOutput> moveNext, TInput input)
         {
             moveNext(input);
         }
@@ -286,7 +289,7 @@ namespace Machines
                 return dictionary.GetEnumerator();
             }
 
-            IEnumerator IEnumerable.GetEnumerator()
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
             {
                 return GetEnumerator();
             }
@@ -299,36 +302,26 @@ namespace Machines
         }
         #endregion
 
-        #region Overridable helpers
-        protected virtual bool IsConstantState(TValue value)
-        {
-            return (this == (object)Value);
-        }
-
-        protected virtual bool IsFinalState(TValue value)
-        {
-            return (HasEmptyStateGraph || !Edges.ContainsKey(value));
-        }
-
-        protected virtual bool CanBeTransitionStart(TValue value)
-        {
-            return !IsFinal;
-        }
-
-        protected virtual Edge<TValue, TData, TArgs> FollowableEdgeFor(TValue value, KeyValuePair<TData, TArgs> input)
-        {
-            Edge<TValue, TData, TArgs> edge;
-            EdgeSet edges;
-            return ((Edges.TryGetValue(value, out edges)) && edges.TryGetValue(input.Key, out edge) ? edge : null);
-        }
-        #endregion
-
         #region State graph construction
-        #region Edge set helper (for same state of origin in the state graph)
-        protected class EdgeSet : Dictionary<TData, Edge<TValue, TData, TArgs>> { }
+        #region "Edge star" (transition edge set for same state of origin in the state graph)
+        protected class EdgeStar : ReadOnlyDictionary<TData, Edge<TValue, TData, TArgs>>
+        {
+            #region Internal constructor
+            internal EdgeStar(IDictionary<TData, Edge<TValue, TData, TArgs>> edges) : base(edges) { }
+            #endregion
+        }
         #endregion
 
-        protected ReadOnlyDictionary<TValue, EdgeSet> Edges { get; private set; }
+        #region "State graph" (set of edge stars for all states of origin)
+        protected class StateGraph : ReadOnlyDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>>
+        {
+            #region Internal constructor
+            internal StateGraph(IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> origins) : base(origins) { }
+            #endregion
+        }
+        #endregion
+
+        protected IDictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>> Edges { get; private set; }
 
         protected bool HasEmptyStateGraph { get { return ((Edges == null) || (Edges.Count == 0)); } }
 
@@ -342,25 +335,25 @@ namespace Machines
             return Build(null, includeAttributes);
         }
 
-        protected State<TValue, TData, TArgs> Build(IEnumerable transitions)
+        protected State<TValue, TData, TArgs> Build(System.Collections.IEnumerable transitions)
         {
             return Build(transitions, true);
         }
 
-        protected State<TValue, TData, TArgs> Build(IEnumerable transitions, bool includeAttributes)
+        protected State<TValue, TData, TArgs> Build(System.Collections.IEnumerable transitions, bool includeAttributes)
         {
             if (IsConstant)
                 throw new InvalidOperationException("cannot modify a state constant");
             if (HasEmptyStateGraph)
             {
-                var edges = new Dictionary<TValue, EdgeSet>();
+                var origins = new Dictionary<TValue, IDictionary<TData, Edge<TValue, TData, TArgs>>>();
                 if (includeAttributes)
                 {
                     var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), false);
                     foreach (TransitionAttribute attribute in attributes)
                     {
                         var transition = ParseTransition(attribute);
-                        AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
+                        AddTransition(origins, transition.From, transition.When, transition.Goto, transition.With);
                     }
                 }
                 if (transitions != null)
@@ -370,11 +363,13 @@ namespace Machines
                         if (untyped != null)
                         {
                             var transition = ParseTransition(untyped);
-                            AddTransition(edges, transition.From, transition.When, transition.Goto, transition.With);
+                            AddTransition(origins, transition.From, transition.When, transition.Goto, transition.With);
                         }
                     }
                 }
-                Edges = new ReadOnlyDictionary<TValue, EdgeSet>(edges);
+                foreach (var state in origins.Keys.ToArray())
+                    origins[state] = new EdgeStar(origins[state]);
+                Edges = new StateGraph(origins);
             }
             else
                 throw new InvalidOperationException("state graph already defined");
@@ -426,6 +421,30 @@ namespace Machines
         }
         #endregion
 
+        #region Overridable helpers
+        protected virtual bool IsConstantState(TValue value)
+        {
+            return (this == (object)Value);
+        }
+
+        protected virtual bool IsFinalState(TValue value)
+        {
+            return (HasEmptyStateGraph || !Edges.ContainsKey(value));
+        }
+
+        protected virtual bool IsTransitionOrigin(TValue value)
+        {
+            return !IsFinal;
+        }
+
+        protected virtual Edge<TValue, TData, TArgs> FollowableEdgeFor(TValue value, KeyValuePair<TData, TArgs> input)
+        {
+            IDictionary<TData, Edge<TValue, TData, TArgs>> edges;
+            Edge<TValue, TData, TArgs> edge;
+            return ((Edges.TryGetValue(value, out edges)) && edges.TryGetValue(input.Key, out edge) ? edge : null);
+        }
+        #endregion
+
         #region Overridable state transition and error handling
         protected virtual KeyValuePair<TData, TArgs> Prepare(KeyValuePair<TData, TArgs> input)
         {
@@ -463,18 +482,18 @@ namespace Machines
         public bool IsFinal { get { return IsFinalState(Value); } }
         #endregion
 
-        #region IState<out TValue> implementation
-        public TValue Value { get; protected set; }
+        #region IState<TValue> implementation
+        public TValue Value { get; private set; }
         #endregion
 
-        #region IState<out TValue, TData> implementation
+        #region IState<TValue, TData> implementation
         public IState<TValue, TData> MoveNext(TData input)
         {
             return MoveNext(input, default(TArgs));
         }
         #endregion
 
-        #region IState<out TValue, TData, TArgs> implementation
+        #region IState<TValue, TData, TArgs> implementation
         public IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args)
         {
             return MoveNext(new KeyValuePair<TData, TArgs>(info, args));
@@ -486,20 +505,20 @@ namespace Machines
             Edge<TValue, TData, TArgs> edge;
             if (HasEmptyStateGraph)
                 throw new InvalidOperationException("state graph is empty");
-            if (!CanBeTransitionStart(value))
+            if (!IsTransitionOrigin(value))
                 throw new InvalidOperationException(String.Format("no transition from {0}", value));
             input = Prepare(input);
             if ((edge = FollowableEdgeFor(value, input)) != null)
             {
                 var next = edge.Target;
-                var step = ExecutionStep.Leave;
+                var step = ExecutionStep.LeaveState;
                 try
                 {
                     var handler = edge.Handler;
                     OnChange(step, next, input.Key, input.Value);
                     if (handler != null)
                         handler(this, step, next, input.Key, input.Value);
-                    step = ExecutionStep.Enter;
+                    step = ExecutionStep.EnterState;
                     Value = next;
                     if (handler != null)
                         handler(this, step, value, input.Key, input.Value);
@@ -517,7 +536,7 @@ namespace Machines
                     }
                     catch (Exception exception)
                     {
-                        if (HandleError(exception, ExecutionStep.Complete, input.Key, input.Value, ref next))
+                        if (HandleError(exception, ExecutionStep.StateComplete, input.Key, input.Value, ref next))
                             Value = next;
                     }
                 return (!IsFinal ? this : null);
@@ -572,7 +591,7 @@ namespace Machines
             }
             catch (Exception exception)
             {
-                if (HandleError(exception, ExecutionStep.Start, default(TData), default(TArgs), ref value))
+                if (HandleError(exception, ExecutionStep.StartState, default(TData), default(TArgs), ref value))
                     Value = value;
             }
             return this;
@@ -606,6 +625,7 @@ namespace Machines
     public interface ISignalSource<TData, TArgs> : IObservable<KeyValuePair<TData, TArgs>>
     {
         ISignalSource<TData, TArgs> Emit(TData info);
+
         ISignalSource<TData, TArgs> Emit(TData info, TArgs args);
     }
     #endregion
@@ -687,7 +707,7 @@ namespace Machines
         }
         #endregion
 
-        #region IObservable<out TInput> implementation
+        #region IObservable<TInput> implementation
         public IDisposable Subscribe(IObserver<TInput> observer)
         {
             if (observer == null) throw new ArgumentNullException("observer", "cannot be null");
