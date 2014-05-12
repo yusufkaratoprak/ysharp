@@ -23,14 +23,14 @@ namespace Test
         // which in turn is a shortcut for / derived from State<Status, string, object> :
         public class Device : State<Status>
         {
+            private static void OnEnter(ExecutionStep guard, Action action) { if (guard == ExecutionStep.EnterState) action(); }
+
             // Executed before and after every state transition :
-            protected override void OnChange(ExecutionStep step, Status value, string info, object args)
-            {
-                if (step == ExecutionStep.EnterState)
-                {
+            protected override void OnChange(ExecutionStep step, Status value, string info, object args) {
+                OnEnter(step, () => {
                     // 'value' is the state value that we have transitioned FROM :
                     Console.WriteLine("\t{0} -- {1} -> {2}", value, info, this);
-                }
+                });
             }
 
             public override string ToString() { return Value.ToString(); }
@@ -72,7 +72,7 @@ namespace Test
                         MoveNext("Dispose") // MoveNext(...) returns null iff tv.IsFinal == true
                     == null
                 );
-
+            
             Console.WriteLine();
             Console.WriteLine("Is the TV's state '{0}' a final state? {1}", tv.Value, done);
 
