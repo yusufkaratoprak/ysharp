@@ -24,7 +24,44 @@ namespace Machines
         #endregion
     }
 
-    public struct Transition<TValue, TData, TArgs>
+    public interface ITransition<TValue, TData, TArgs>
+    {
+        TValue From { get; }
+
+        TData When { get; }
+
+        TValue Goto { get; }
+
+        Handler<TValue, TData, TArgs> With { get; }
+    }
+
+    public struct Transition<TValue> : ITransition<TValue, string, object>
+    {
+        #region Public members
+        public TValue From { get; set; }
+
+        public string When { get; set; }
+
+        public TValue Goto { get; set; }
+
+        public Handler<TValue, string, object> With { get; set; }
+        #endregion
+    }
+
+    public struct Transition<TValue, TData> : ITransition<TValue, TData, object>
+    {
+        #region Public members
+        public TValue From { get; set; }
+
+        public TData When { get; set; }
+
+        public TValue Goto { get; set; }
+
+        public Handler<TValue, TData, object> With { get; set; }
+        #endregion
+    }
+
+    public struct Transition<TValue, TData, TArgs> : ITransition<TValue, TData, TArgs>
     {
         #region Public members
         public TValue From { get; set; }
@@ -40,6 +77,10 @@ namespace Machines
 
     #region State transition handling
     public enum ExecutionStep { StartState, LeaveState, EnterState, StateComplete, SourceComplete, SourceError }
+
+    public delegate void Handler<in TValue>(IState<TValue> state, ExecutionStep step, TValue value, string info, object args);
+
+    public delegate void Handler<in TValue, in TData>(IState<TValue> state, ExecutionStep step, TValue value, TData info, object args);
 
     public delegate void Handler<in TValue, in TData, in TArgs>(IState<TValue> state, ExecutionStep step, TValue value, TData info, TArgs args);
     #endregion
@@ -64,12 +105,18 @@ namespace Machines
 
     public interface IState<out TValue, TData> : IState<TValue>, IObserver<TData>
     {
+        IState<TValue, TData> GetNext(TData input);
+
         IState<TValue, TData> MoveNext(TData input);
     }
 
     public interface IState<out TValue, TData, TArgs> : IState<TValue, TData>, IObserver<KeyValuePair<TData, TArgs>>
     {
+        IState<TValue, TData, TArgs> GetNext(TData info, TArgs args);
+
         IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args);
+
+        IState<TValue, TData, TArgs> GetNext(KeyValuePair<TData, TArgs> input);
 
         IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input);
     }
@@ -167,6 +214,34 @@ namespace Machines
             if ((value is string) && (handler == null))
                 throw new InvalidOperationException(String.Format("transition handler method {0} not found", value));
             return new Transition<TValue, TData, TArgs> { From = source, When = info, Goto = target, With = handler };
+        }
+
+        private bool TryGetEdge(KeyValuePair<TData, TArgs> input, bool silent, out Edge<TValue, TData, TArgs> edge)
+        {
+            var value = Value;
+            Edge<TValue, TData, TArgs> found;
+            bool empty;
+            if ((empty = IsEmptyStateGraph) || !IsTransitionOrigin(value))
+            {
+                if (!silent)
+                {
+                    if (empty)
+                        throw new InvalidOperationException("state graph is empty");
+                    else
+                        throw new InvalidOperationException(String.Format("no transition from {0}", value));
+                }
+                edge = null;
+                return false;
+            }
+            input = Prepare(input);
+            edge = found = FollowableEdgeFor(value, input);
+            return (found != null);
+        }
+
+        private IState<TValue, TData, TArgs> TryGetNext(KeyValuePair<TData, TArgs> input)
+        {
+            Edge<TValue, TData, TArgs> edge;
+            return (TryGetEdge(input, true, out edge) ? this : null);
         }
 
         private void Next<TInput, TOutput>(Func<TInput, TOutput> moveNext, TInput input)
@@ -375,18 +450,26 @@ namespace Machines
                     var attributes = GetType().GetCustomAttributes(typeof(TransitionAttribute), false);
                     foreach (TransitionAttribute attribute in attributes)
                     {
-                        var transition = ParseTransition(attribute);
+                        var transition = ParseTransition(attribute as object);
                         AddTransition(origins, transition.From, transition.When, transition.Goto, transition.With);
                     }
                 }
                 if (transitions != null)
                 {
-                    foreach (var untyped in transitions)
+                    foreach (var transition in transitions)
                     {
-                        if (untyped != null)
+                        if (transition != null)
                         {
-                            var transition = ParseTransition(untyped);
-                            AddTransition(origins, transition.From, transition.When, transition.Goto, transition.With);
+                            ITransition<TValue, TData, TArgs> typed;
+                            if (
+                                typeof(ITransition<TValue, TData, TArgs>).IsAssignableFrom(transition.GetType()) ||
+                                typeof(ITransition<TValue, TData, object>).IsAssignableFrom(transition.GetType()) ||
+                                typeof(ITransition<TValue, string, object>).IsAssignableFrom(transition.GetType())
+                            )
+                                typed = (ITransition<TValue, TData, TArgs>)(object)transition;
+                            else
+                                typed = ParseTransition(transition as object);
+                            AddTransition(origins, typed.From, typed.When, typed.Goto, typed.With);
                         }
                     }
                 }
@@ -510,6 +593,11 @@ namespace Machines
         #endregion
 
         #region IState<TValue, TData> implementation
+        public IState<TValue, TData> GetNext(TData input)
+        {
+            return GetNext(input, default(TArgs));
+        }
+
         public IState<TValue, TData> MoveNext(TData input)
         {
             return MoveNext(input, default(TArgs));
@@ -517,21 +605,26 @@ namespace Machines
         #endregion
 
         #region IState<TValue, TData, TArgs> implementation
+        public IState<TValue, TData, TArgs> GetNext(TData info, TArgs args)
+        {
+            return GetNext(new KeyValuePair<TData, TArgs>(info, args));
+        }
+
         public IState<TValue, TData, TArgs> MoveNext(TData info, TArgs args)
         {
             return MoveNext(new KeyValuePair<TData, TArgs>(info, args));
+        }
+
+        public IState<TValue, TData, TArgs> GetNext(KeyValuePair<TData, TArgs> input)
+        {
+            return TryGetNext(input);
         }
 
         public IState<TValue, TData, TArgs> MoveNext(KeyValuePair<TData, TArgs> input)
         {
             var value = Value;
             Edge<TValue, TData, TArgs> edge;
-            if (IsEmptyStateGraph)
-                throw new InvalidOperationException("state graph is empty");
-            if (!IsTransitionOrigin(value))
-                throw new InvalidOperationException(String.Format("no transition from {0}", value));
-            input = Prepare(input);
-            if ((edge = FollowableEdgeFor(value, input)) != null)
+            if (TryGetEdge(input, false, out edge))
             {
                 var next = edge.Target;
                 var step = ExecutionStep.LeaveState;
