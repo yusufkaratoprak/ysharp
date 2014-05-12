@@ -36,27 +36,25 @@ namespace Test
                 {
                     // Build the state graph programmatically
                     // (instead of declaratively via custom attributes) :
-                    Build
-                    (
-                        new[]
-                        {
-                            new { From = Television.Unplugged, When = TvOperation.Plug, Goto = Television.Off, With = "StateChange" },
-                            new { From = Television.Unplugged, When = TvOperation.Dispose, Goto = Television.Disposed, With = "StateChange" },
-                            new { From = Television.Off, When = TvOperation.SwitchOn, Goto = Television.On, With = "StateChange" },
-                            new { From = Television.Off, When = TvOperation.Unplug, Goto = Television.Unplugged, With = "StateChange" },
-                            new { From = Television.Off, When = TvOperation.Dispose, Goto = Television.Disposed, With = "StateChange" },
-                            new { From = Television.On, When = TvOperation.SwitchOff, Goto = Television.Off, With = "StateChange" },
-                            new { From = Television.On, When = TvOperation.Unplug, Goto = Television.Unplugged, With = "StateChange" },
-                            new { From = Television.On, When = TvOperation.Dispose, Goto = Television.Disposed, With = "StateChange" }
-                        },
-                        false
-                    );
+                    Build(new[] {
+                        new Transition<Television, TvOperation, DateTime> { From = Television.Unplugged, When = TvOperation.Plug, Goto = Television.Off, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.Unplugged, When = TvOperation.Dispose, Goto = Television.Disposed, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.Off, When = TvOperation.SwitchOn, Goto = Television.On, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.Off, When = TvOperation.Unplug, Goto = Television.Unplugged, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.Off, When = TvOperation.Dispose, Goto = Television.Disposed, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.On, When = TvOperation.SwitchOff, Goto = Television.Off, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.On, When = TvOperation.Unplug, Goto = Television.Unplugged, With = OnStateChange },
+                        new Transition<Television, TvOperation, DateTime> { From = Television.On, When = TvOperation.Dispose, Goto = Television.Disposed, With = OnStateChange }
+                    }, false);
                 }
                 else
                     // Name the state constant :
                     Moniker = moniker;
                 Start(value ?? this);
             }
+
+            private static void OnLeave(ExecutionStep guard, Action action) { if (guard == ExecutionStep.LeaveState) action(); }
+            private static void OnEnter(ExecutionStep guard, Action action) { if (guard == ExecutionStep.EnterState) action(); }
 
             // Because the states' value domain is a reference type, disallow the null value for any start state value : 
             protected override void OnStart(Television value)
@@ -76,8 +74,8 @@ namespace Test
                     UnsubscribeFromAll();
             }
 
-            // Executed before and after every state transition :
-            private void StateChange(IState<Television> state, ExecutionStep step, Television value, TvOperation info, DateTime args)
+            // Executed before and after every state transition (cf. the 4th constructor above) :
+            private void OnStateChange(IState<Television> state, ExecutionStep step, Television value, TvOperation info, DateTime args)
             {
                 // Holds during all possible transitions defined in the state graph :
                 System.Diagnostics.Debug.Assert((step != ExecutionStep.LeaveState) || !state.IsFinal);
@@ -85,21 +83,16 @@ namespace Test
                 // Holds in instance (i.e., non-static) transition handlers like this one :
                 System.Diagnostics.Debug.Assert(this == state);
 
-                switch (step)
-                {
-                    case ExecutionStep.LeaveState:
-                        var timeStamp = ((args != default(DateTime)) ? String.Format("\t\t(@ {0})", args) : String.Empty);
-                        Console.WriteLine();
-                        // 'value' is the state value that we are transitioning TO :
-                        Console.WriteLine("\tLeave :\t{0} -- {1} -> {2}{3}", this, info, value, timeStamp);
-                        break;
-                    case ExecutionStep.EnterState:
-                        // 'value' is the state value that we have transitioned FROM :
-                        Console.WriteLine("\tEnter :\t{0} -- {1} -> {2}", value, info, this);
-                        break;
-                    default:
-                        break;
-                }
+                OnLeave(step, () => {
+                    var timeStamp = ((args != default(DateTime)) ? String.Format("\t\t(@ {0})", args) : String.Empty);
+                    Console.WriteLine();
+                    // 'value' is the state value that we are transitioning TO :
+                    Console.WriteLine("\tLeave :\t{0} -- {1} -> {2}{3}", this, info, value, timeStamp);
+                });
+                OnEnter(step, () => {
+                    // 'value' is the state value that we have transitioned FROM :
+                    Console.WriteLine("\tEnter :\t{0} -- {1} -> {2}", value, info, this);
+                });
             }
 
             public override string ToString() { return (IsConstant ? Moniker : Value.ToString()); }
