@@ -44,6 +44,8 @@ namespace Test
                 { "die", "Death" }
             };
 
+            private static void OnEnter(ExecutionStep guard, Action action) { if (guard == ExecutionStep.EnterState) action(); }
+
             // For convenience, map some verbs to the corresponding valid transition nouns
             // (this will be taken into account during calls to IState<...>.MoveNext(...)) :
             protected override KeyValuePair<string, DateTime> Prepare(KeyValuePair<string, DateTime> input)
@@ -52,14 +54,12 @@ namespace Test
             }
 
             // Executed before and after every state transition :
-            protected override void OnChange(ExecutionStep step, Status value, string info, DateTime args)
-            {
-                if (step == ExecutionStep.EnterState)
-                {
+            protected override void OnChange(ExecutionStep step, Status value, string info, DateTime args) {
+                OnEnter(step, () => {
                     var timeStamp = String.Format("\t\t(@ {0})", (args != default(DateTime)) ? args : DateTime.Now);
                     // 'value' is the state value that we have transitioned FROM :
                     Console.WriteLine("\t{0} -- {1} -> {2}{3}", value, info, this, timeStamp);
-                }
+                });
             }
 
             public override string ToString() { return Value.ToString(); }
